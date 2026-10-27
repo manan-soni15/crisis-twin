@@ -129,15 +129,32 @@ def init_db():
                 holding_id TEXT NOT NULL,
                 ticker TEXT NOT NULL,
                 side TEXT NOT NULL CHECK(side IN ('buy', 'sell')),
+                order_type TEXT NOT NULL DEFAULT 'market',
                 quantity INTEGER NOT NULL,
                 price REAL NOT NULL,
+                limit_price REAL,
+                executed_price REAL,
                 total_val REAL NOT NULL,
-                status TEXT NOT NULL DEFAULT 'executed',
+                status TEXT NOT NULL DEFAULT 'EXECUTED',
                 confirmed BOOLEAN NOT NULL DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                executed_at TIMESTAMP,
                 FOREIGN KEY (portfolio_id) REFERENCES portfolios(id)
             );
         """)
+        # Safe migration for existing SQLite database files
+        cursor.execute("PRAGMA table_info(paper_trades);")
+        pt_cols = {col["name"] for col in cursor.fetchall()}
+        if "order_type" not in pt_cols:
+            cursor.execute("ALTER TABLE paper_trades ADD COLUMN order_type TEXT NOT NULL DEFAULT 'market';")
+        if "limit_price" not in pt_cols:
+            cursor.execute("ALTER TABLE paper_trades ADD COLUMN limit_price REAL;")
+        if "executed_price" not in pt_cols:
+            cursor.execute("ALTER TABLE paper_trades ADD COLUMN executed_price REAL;")
+        if "executed_at" not in pt_cols:
+            cursor.execute("ALTER TABLE paper_trades ADD COLUMN executed_at TIMESTAMP;")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_paper_trades_status ON paper_trades(portfolio_id, status);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_paper_trades_holding ON paper_trades(holding_id, status);")
         
         # 8. User Risk Profiles
         cursor.execute("""
