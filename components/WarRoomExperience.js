@@ -68,9 +68,15 @@ export default function WarRoomExperience() {
   const [draft, setDraft] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastSpeaker, setLastSpeaker] = useState("Crisis Twin");
+  const [isListening, setIsListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState("");
   const inputRef = useRef(null);
   const timerRef = useRef(null);
   const conversationRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const finalTranscriptRef = useRef("");
+  const shouldSubmitVoiceRef = useRef(false);
 
   useEffect(() => {
     if (conversationRef.current) {
@@ -78,8 +84,20 @@ export default function WarRoomExperience() {
     }
   }, [messages, isProcessing]);
 
-  useEffect(() => () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+  useEffect(() => {
+    setVoiceSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition));
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      shouldSubmitVoiceRef.current = false;
+      if (recognitionRef.current) {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    };
   }, []);
 
   function sendCommand(value) {
@@ -101,11 +119,92 @@ export default function WarRoomExperience() {
 
   function handleSubmit(event) {
     event.preventDefault();
+    shouldSubmitVoiceRef.current = false;
+    if (isListening && recognitionRef.current) recognitionRef.current.stop();
     sendCommand(draft);
+  }
+
+  function toggleVoiceInput() {
+    if (!voiceSupported || isProcessing) return;
+
+    if (isListening && recognitionRef.current) {
+      shouldSubmitVoiceRef.current = true;
+      recognitionRef.current.stop();
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setVoiceStatus("Voice recognition is not supported here. Please type your command instead.");
+      setVoiceSupported(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = "en-IN";
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+      recognitionRef.current = recognition;
+      finalTranscriptRef.current = "";
+      shouldSubmitVoiceRef.current = true;
+      setVoiceStatus("Listening now. Speak clearly, then pause to send your command.");
+      setDraft("");
+
+      recognition.onresult = (event) => {
+        let interimTranscript = "";
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          const transcript = event.results[i][0]?.transcript || "";
+          if (event.results[i].isFinal) finalTranscriptRef.current += `${transcript} `;
+          else interimTranscript += transcript;
+        }
+        const combined = `${finalTranscriptRef.current} ${interimTranscript}`.trim();
+        setDraft(combined);
+      };
+
+      recognition.onerror = (event) => {
+        shouldSubmitVoiceRef.current = false;
+        const messages = {
+          "not-allowed": "Microphone permission was denied. Allow microphone access in your browser settings, or type your command.",
+          "service-not-allowed": "The browser speech service is unavailable. You can still type your command.",
+          "no-speech": "No speech was detected. Tap the microphone and try again.",
+          network: "The browser speech service had a network issue. Please try again or type your command.",
+          aborted: "Voice input was stopped.",
+        };
+        setVoiceStatus(messages[event.error] || "Voice input could not start. Please try again or type your command.");
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        recognitionRef.current = null;
+        const transcript = finalTranscriptRef.current.trim();
+        if (shouldSubmitVoiceRef.current && transcript) {
+          shouldSubmitVoiceRef.current = false;
+          setVoiceStatus("Voice command received.");
+          setDraft("");
+          sendCommand(transcript);
+        } else if (shouldSubmitVoiceRef.current) {
+          shouldSubmitVoiceRef.current = false;
+          setVoiceStatus("I didn't catch a complete command. Try again or type below.");
+        }
+      };
+
+      recognition.start();
+      setIsListening(true);
+    } catch {
+      shouldSubmitVoiceRef.current = false;
+      setIsListening(false);
+      setVoiceStatus("Could not access voice input. Check microphone permission or type your command.");
+    }
   }
 
   function clearConversation() {
     if (isProcessing && timerRef.current) clearTimeout(timerRef.current);
+    shouldSubmitVoiceRef.current = false;
+    if (recognitionRef.current) recognitionRef.current.stop();
+    setIsListening(false);
+    setVoiceStatus("");
     setMessages(INITIAL_MESSAGES);
     setIsProcessing(false);
     setLastSpeaker("Crisis Twin");
@@ -140,7 +239,13 @@ export default function WarRoomExperience() {
 
         <div className="space-y-5 lg:order-2 lg:col-span-6">
           <Panel tone="ink" bodyClass="!pt-2">
-            <VoiceOrb />
+            <VoiceOrb
+              isListening={isListening}
+              isProcessing={isProcessing}
+              isSupported={voiceSupported}
+              onToggle={toggleVoiceInput}
+              statusMessage={voiceStatus}
+            />
             <form onSubmit={handleSubmit} className="mx-auto mt-2 flex max-w-[520px] gap-2" aria-label="Type a request">
               <label htmlFor="typed" className="sr-only">Type a request</label>
               <input
@@ -163,7 +268,7 @@ export default function WarRoomExperience() {
                 <Icon name="send" size={18} />
               </button>
             </form>
-            <div className="mt-3 text-center text-xs text-ice/60">{isProcessing ? "Preparing a demo response…" : "Demo mode · no live market data or trades"}</div>
+            <div className="mt-3 text-center text-xs text-ice/60">{isListening ? "Microphone active · pause when finished" : isProcessing ? "Preparing a demo response…" : "Voice input + typed commands · demo responses only"}</div>
           </Panel>
 
           <Panel title="Conversation" aside={<button type="button" onClick={clearConversation} className="text-sm font-medium text-ultra hover:underline">Clear</button>}>
@@ -202,7 +307,7 @@ export default function WarRoomExperience() {
               </li>
             ))}
           </ul>
-          <p className="mt-5 border-t border-line pt-4 text-sm leading-relaxed text-slate">Voice recognition and spoken replies are the next milestone. For now, test the typed conversation and suggested prompts.</p>
+          <p className="mt-5 border-t border-line pt-4 text-sm leading-relaxed text-slate">Use the microphone to speak a command or type it below. Speech recognition depends on browser support and microphone permission. Spoken replies will be added in a later milestone.</p>
           <div className="mt-4"><Button href="/debate" variant="ghost" className="w-full">Read the debate</Button></div>
         </Panel>
       </div>
@@ -210,4 +315,3 @@ export default function WarRoomExperience() {
     </>
   );
 }
-

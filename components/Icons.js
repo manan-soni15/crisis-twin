@@ -5,6 +5,7 @@ const P = {
   map: (<><circle cx="5" cy="12" r="2" /><circle cx="19" cy="6" r="2" /><circle cx="19" cy="18" r="2" /><path d="M7 11.2l10-4.4M7 12.8l10 4.4" /></>),
   debate: (<><path d="M3.5 5.5h10v7h-5l-3 2.5v-2.5h-2z" /><path d="M16 9.5h4.5v7H19v2.5l-3-2.5h-4.5" /></>),
   mic: (<><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11.5a6.5 6.5 0 0013 0M12 18v3" /></>),
+  "mic-off": (<><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11.5a6.5 6.5 0 0013 0M12 18v3M4 4l16 16" /></>),
   drill: (<><circle cx="12" cy="13.5" r="7" /><path d="M12 13.5V9.5M9.5 3h5" /></>),
   replay: <path d="M11 6.5L4 12l7 5.5zM20 6.5L13 12l7 5.5z" />,
   report: (<><path d="M6 3h9l4 4v14H6z" /><path d="M14.5 3v4.5H19M9 13h7M9 17h5" /></>),
