@@ -104,14 +104,14 @@ export default function WarRoomExperience() {
     const command = value.trim();
     if (!command || isProcessing) return;
 
-    const userMessage = { id: `${Date.now()}-user`, who: "You", text: command };
+    const userMessage = { id: `msg-${messages.length + 1}-user`, who: "You", text: command };
     setMessages((current) => [...current, userMessage]);
     setDraft("");
     setIsProcessing(true);
 
     timerRef.current = setTimeout(() => {
       const reply = getDemoReply(command);
-      setMessages((current) => [...current, { id: `${Date.now()}-reply`, ...reply }]);
+      setMessages((current) => [...current, { id: `msg-${current.length + 1}-reply`, ...reply }]);
       setLastSpeaker(reply.who);
       setIsProcessing(false);
     }, 450);
