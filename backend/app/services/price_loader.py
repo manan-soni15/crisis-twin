@@ -114,7 +114,7 @@ def update_portfolio_from_cache(conn: Optional[sqlite3.Connection] = None):
 
 def _do_update_portfolio(conn: sqlite3.Connection):
     cursor = conn.cursor()
-    cursor.execute("SELECT id, ticker, quantity, avg_buy_price FROM holdings WHERE portfolio_id = 'default'")
+    cursor.execute("SELECT id, ticker, quantity, avg_buy_price, current_price FROM holdings WHERE portfolio_id = 'default'")
     holdings = cursor.fetchall()
     
     updates = []
@@ -124,7 +124,7 @@ def _do_update_portfolio(conn: sqlite3.Connection):
         # Query prices_cache directly with the same connection
         cursor.execute("SELECT close FROM prices_cache WHERE ticker = ? ORDER BY date DESC LIMIT 1", (h["ticker"],))
         price_row = cursor.fetchone()
-        price = price_row["close"] if price_row else h["avg_buy_price"]
+        price = float(price_row["close"]) if price_row else (float(h["current_price"]) if h["current_price"] and h["current_price"] > 0 else float(h["avg_buy_price"]))
         val = h["quantity"] * price
         total_val += val
         updates.append((h["id"], price, val))
