@@ -49,5 +49,4 @@ __pycache__/
 *.sqlite3
 .venv/
 venv/
-backend/.env
 

@@ -1,0 +1,189 @@
+{
+  "portfolios": [
+    {
+      "id": "default",
+      "name": "Main Growth Portfolio",
+      "user_id": "user_default",
+      "cash_balance": 750000.0,
+      "created_at": "2026-10-28 15:44:40",
+      "updated_at": "2026-10-28 15:44:40"
+    }
+  ],
+  "holdings": [
+    {
+      "id": "reliance",
+      "portfolio_id": "default",
+      "ticker": "RELIANCE.NS",
+      "name": "Reliance Industries",
+      "sector": "energy",
+      "quantity": 345,
+      "avg_buy_price": 2520.0,
+      "current_price": 2515.0,
+      "beta": 0.7,
+      "weight": 18.0,
+      "day_change_pct": 0.4,
+      "updated_at": "2026-10-28 15:44:40"
+    },
+    {
+      "id": "indigo",
+      "portfolio_id": "default",
+      "ticker": "INDIGO.NS",
+      "name": "InterGlobe Aviation",
+      "sector": "airlines",
+      "quantity": 98,
+      "avg_buy_price": 4420.0,
+      "current_price": 4390.0,
+      "beta": 0.85,
+      "weight": 9.0,
+      "day_change_pct": -1.6,
+      "updated_at": "2026-10-28 15:44:40"
+    },
+    {
+      "id": "hdfc",
+      "portfolio_id": "default",
+      "ticker": "HDFCBANK.NS",
+      "name": "HDFC Bank",
+      "sector": "banks",
+      "quantity": 580,
+      "avg_buy_price": 1660.0,
+      "current_price": 1650.0,
+      "beta": 0.9,
+      "weight": 20.0,
+      "day_change_pct": -0.5,
+      "updated_at": "2026-10-28 15:44:40"
+    },
+    {
+      "id": "tata",
+      "portfolio_id": "default",
+      "ticker": "TATAMOTORS.NS",
+      "name": "Tata Motors",
+      "sector": "auto",
+      "quantity": 620,
+      "avg_buy_price": 935.0,
+      "current_price": 928.0,
+      "beta": 1.05,
+      "weight": 12.0,
+      "day_change_pct": -0.9,
+      "updated_at": "2026-10-28 15:44:40"
+    },
+    {
+      "id": "infy",
+      "portfolio_id": "default",
+      "ticker": "INFY.NS",
+      "name": "Infosys",
+      "sector": "it",
+      "quantity": 435,
+      "avg_buy_price": 1880.0,
+      "current_price": 1885.0,
+      "beta": 0.8,
+      "weight": 17.0,
+      "day_change_pct": 0.2,
+      "updated_at": "2026-10-28 15:44:40"
+    },
+    {
+      "id": "sun",
+      "portfolio_id": "default",
+      "ticker": "SUNPHARMA.NS",
+      "name": "Sun Pharma",
+      "sector": "pharma",
+      "quantity": 260,
+      "avg_buy_price": 1850.0,
+      "current_price": 1860.0,
+      "beta": 0.6,
+      "weight": 10.0,
+      "day_change_pct": 0.7,
+      "updated_at": "2026-10-28 15:44:40"
+    },
+    {
+      "id": "itc",
+      "portfolio_id": "default",
+      "ticker": "ITC.NS",
+      "name": "ITC",
+      "sector": "fmcg",
+      "quantity": 1370,
+      "avg_buy_price": 492.0,
+      "current_price": 493.0,
+      "beta": 0.75,
+      "weight": 14.0,
+      "day_change_pct": 0.1,
+      "updated_at": "2026-10-28 15:44:40"
+    }
+  ],
+  "paper_trades": [],
+  "profiles": [
+    {
+      "user_id": "user_default",
+      "comfort_threshold_pct": -8.0,
+      "breaking_point_pct": -15.0,
+      "reaction_style": "holds then sells late",
+      "answers_json": "[{\"q\": \"Your portfolio drops 15% in a week. What do you do?\", \"a\": \"Sell a third and wait\", \"loss_threshold\": -15.0}, {\"q\": \"A friend says a stock will double. How much do you put in?\", \"a\": \"A small amount\", \"loss_threshold\": -5.0}, {\"q\": \"The market falls for six months straight. You are most likely to\", \"a\": \"Hold, then sell late\", \"loss_threshold\": -20.0}, {\"q\": \"When do you need this money?\", \"a\": \"In five years or more\", \"loss_threshold\": -25.0}]",
+      "updated_at": "2026-10-28 15:44:40"
+    }
+  ],
+  "runs": [
+    {
+      "id": "run-0142",
+      "scenario_name": "Oil +25% and rates +100 bps",
+      "shocks_json": "{\"oil_price\": {\"change_pct\": 25}, \"policy_rate\": {\"change_bps\": 100}, \"horizon_days\": 10}",
+      "horizon_days": 10,
+      "expected_move_pct": -4.1,
+      "p05": -6.8,
+      "p95": -1.9,
+      "cvar95": -7.4,
+      "survival_score": 72,
+      "confidence": "medium",
+      "in_fitted_range": 1,
+      "model_version": "factors-v3",
+      "per_holding_json": "[{\"id\": \"tata\", \"name\": \"Tata Motors\", \"weight\": 12, \"impact_pct\": -12.6, \"beta\": 1.05, \"breakdown\": [{\"factor\": \"oil_price\", \"value_pct\": -5.8}, {\"factor\": \"policy_rate\", \"value_pct\": -6.2}]}, {\"id\": \"indigo\", \"name\": \"IndiGo\", \"weight\": 9, \"impact_pct\": -12.0, \"beta\": 0.85, \"breakdown\": [{\"factor\": \"oil_price\", \"value_pct\": -9.5}, {\"factor\": \"policy_rate\", \"value_pct\": -2.5}]}, {\"id\": \"hdfc\", \"name\": \"HDFC Bank\", \"weight\": 20, \"impact_pct\": -6.3, \"beta\": 0.9, \"breakdown\": [{\"factor\": \"oil_price\", \"value_pct\": -1.5}, {\"factor\": \"policy_rate\", \"value_pct\": -4.8}]}, {\"id\": \"reliance\", \"name\": \"Reliance\", \"weight\": 18, \"impact_pct\": 4.0, \"beta\": 0.7, \"breakdown\": [{\"factor\": \"oil_price\", \"value_pct\": 4.8}, {\"factor\": \"policy_rate\", \"value_pct\": -0.8}]}, {\"id\": \"itc\", \"name\": \"ITC\", \"weight\": 14, \"impact_pct\": -3.8, \"beta\": 0.75, \"breakdown\": [{\"factor\": \"oil_price\", \"value_pct\": -2.2}, {\"factor\": \"policy_rate\", \"value_pct\": -1.6}]}, {\"id\": \"infy\", \"name\": \"Infosys\", \"weight\": 17, \"impact_pct\": -2.3, \"beta\": 0.8, \"breakdown\": [{\"factor\": \"oil_price\", \"value_pct\": -0.6}, {\"factor\": \"policy_rate\", \"value_pct\": -1.7}]}, {\"id\": \"sun\", \"name\": \"Sun Pharma\", \"weight\": 10, \"impact_pct\": -0.6, \"beta\": 0.6, \"breakdown\": [{\"factor\": \"oil_price\", \"value_pct\": -0.3}, {\"factor\": \"policy_rate\", \"value_pct\": -0.3}]}]",
+      "risk_contribution_json": "[{\"id\": \"hdfc\", \"share\": 0.24}, {\"id\": \"tata\", \"share\": 0.21}, {\"id\": \"indigo\", \"share\": 0.19}]",
+      "created_at": "2026-10-28 15:44:40"
+    }
+  ],
+  "agent_logs": [
+    {
+      "id": 1,
+      "run_id": "run-0142",
+      "agent": "Bull",
+      "prompt": "Evaluate opportunities in oil +25% and rates +100 bps",
+      "response": "Reliance gains 4.0% on higher crude and Sun Pharma barely moves. A small, targeted trim fixes most of the portfolio risk.",
+      "claims_json": "[{\"claim\": \"Reliance gains 4.0%\", \"evidence_field\": \"per_holding.reliance.impact_pct\", \"severity\": 2}]",
+      "confidence": 3,
+      "latency_ms": 420,
+      "created_at": "2026-10-28 15:44:40"
+    },
+    {
+      "id": 2,
+      "run_id": "run-0142",
+      "agent": "Bear",
+      "prompt": "Evaluate downside in oil +25% and rates +100 bps",
+      "response": "Two winners do not cancel three losers. HDFC Bank falls 6.3% on the rate move, and Tata Motors and IndiGo both fall over 12%. Together they are 41% of the portfolio.",
+      "claims_json": "[{\"claim\": \"HDFC, Tata and IndiGo are 41% of portfolio\", \"evidence_field\": \"per_holding.tata.impact_pct\", \"severity\": 4}]",
+      "confidence": 4,
+      "latency_ms": 530,
+      "created_at": "2026-10-28 15:44:40"
+    },
+    {
+      "id": 3,
+      "run_id": "run-0142",
+      "agent": "Risk Auditor",
+      "prompt": "Check hidden correlation in stress",
+      "response": "HDFC Bank and Tata Motors share auto-credit risk. In stress their correlation rises sharply, so holding both at full size is less diversified than it looks.",
+      "claims_json": "[{\"claim\": \"Shared auto-credit risk\", \"evidence_field\": \"risk_contribution\", \"severity\": 4}]",
+      "confidence": 4,
+      "latency_ms": 380,
+      "created_at": "2026-10-28 15:44:40"
+    },
+    {
+      "id": 4,
+      "run_id": "run-0142",
+      "agent": "Portfolio Manager",
+      "prompt": "Synthesize final recommendation",
+      "response": "Recommend trimming Tata Motors from 12% to 8% and IndiGo to 6%, reallocating 7 points into defensives (Sun Pharma and ITC). Dissent noted.",
+      "claims_json": "[{\"action\": \"Trim Tata Motors to 8%\"}, {\"action\": \"Trim IndiGo to 6%\"}]",
+      "confidence": 4,
+      "latency_ms": 610,
+      "created_at": "2026-10-28 15:44:40"
+    }
+  ],
+  "drill_results": []
+}
