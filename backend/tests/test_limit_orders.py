@@ -28,8 +28,8 @@ def test_buy_limit_order_pending_when_market_above_limit():
     init_tata_qty = tata_baseline["quantity"]
     market_price = tata_baseline["current_price"]
 
-    # Tata Motors market price should be 935.0
-    limit_price = 934.51
+    # Pick a limit just below the actual seeded/cached price; do not assume a fixed quote.
+    limit_price = round(market_price - 0.49, 2)
     assert market_price > limit_price
 
     # 2. Place limit buy order

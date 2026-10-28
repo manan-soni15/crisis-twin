@@ -74,6 +74,8 @@ def place_and_evaluate_paper_trade(order: TradeRequest, conn: sqlite3.Connection
       - Market order: always immediate execution.
     Handles fund/share reservations atomically.
     """
+    if not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
     if not order.confirmed:
         raise HTTPException(status_code=400, detail="Order requires explicit confirmation.")
     
@@ -152,18 +154,21 @@ def place_and_evaluate_paper_trade(order: TradeRequest, conn: sqlite3.Connection
         exec_val = round(order.quantity * exec_price, 2)
         if side == "buy":
             new_qty = current_qty + order.quantity
+            old_avg = float(holding["avg_buy_price"] or 0.0)
+            new_avg = ((current_qty * old_avg) + exec_val) / new_qty if new_qty else 0.0
             new_cash = cash_balance - exec_val
             action_word = "Bought"
         else:
             new_qty = current_qty - order.quantity
+            new_avg = float(holding["avg_buy_price"] or 0.0) if new_qty else 0.0
             new_cash = cash_balance + exec_val
             action_word = "Sold"
 
         cursor.execute("""
             UPDATE holdings 
-            SET quantity = ?, updated_at = CURRENT_TIMESTAMP
+            SET quantity = ?, avg_buy_price = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND portfolio_id = 'default'
-        """, (new_qty, order.holding_id))
+        """, (new_qty, new_avg, order.holding_id))
 
         cursor.execute("""
             UPDATE portfolios 
@@ -253,6 +258,8 @@ def process_pending_orders(conn: Optional[sqlite3.Connection] = None) -> List[Di
             return _do_process_pending_orders(new_conn)
 
 def _do_process_pending_orders(conn: sqlite3.Connection) -> List[Dict]:
+    if not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id, portfolio_id, holding_id, ticker, side, order_type, quantity,
@@ -311,43 +318,50 @@ def _do_process_pending_orders(conn: sqlite3.Connection) -> List[Dict]:
         now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
         if side == "buy":
-            if cash_balance < exec_val:
-                logger.warning(f"Cannot execute pending buy order {order_id}: required ₹{exec_val}, cash ₹{cash_balance}")
+            # Pending buys reserve funds at their limit price. Recheck available cash
+            # excluding this order's own reservation before execution.
+            _, _, available_cash = get_portfolio_cash_and_reserves(conn, ord_row["portfolio_id"])
+            if available_cash + float(ord_row["total_val"] or 0) < exec_val:
+                logger.warning(f"Cannot execute pending buy order {order_id}: insufficient available cash")
                 continue
             new_cash = cash_balance - exec_val
             new_qty = current_holding_qty + qty
+            old_avg = float(holding["avg_buy_price"] or 0.0)
+            new_avg = ((current_holding_qty * old_avg) + exec_val) / new_qty if new_qty else 0.0
             action_word = "Bought"
         else:  # sell
-            if current_holding_qty < qty:
-                logger.warning(f"Cannot execute pending sell order {order_id}: requires {qty} shares, holding has {current_holding_qty}")
+            _, _, available_shares = get_holding_shares_and_reserves(conn, holding_id, ord_row["portfolio_id"])
+            if available_shares + qty < qty or current_holding_qty < qty:
+                logger.warning(f"Cannot execute pending sell order {order_id}: insufficient shares")
                 continue
             new_cash = cash_balance + exec_val
             new_qty = current_holding_qty - qty
+            new_avg = float(holding["avg_buy_price"] or 0.0) if new_qty else 0.0
             action_word = "Sold"
 
-        # Atomically update holdings, portfolio cash, and order status
+        # Claim the order before applying side effects. BEGIN IMMEDIATE serializes
+        # SQLite writers; this conditional update also makes repeat processing idempotent.
         cursor.execute("""
-            UPDATE holdings
-            SET quantity = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ? AND portfolio_id = 'default'
-        """, (new_qty, holding_id))
-
-        cursor.execute("""
-            UPDATE portfolios
-            SET cash_balance = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE id = 'default'
-        """, (new_cash,))
-
-        cursor.execute("""
-            UPDATE paper_trades
-            SET status = 'EXECUTED',
-                executed_price = ?,
-                total_val = ?,
-                executed_at = ?
+            UPDATE paper_trades SET status = 'EXECUTED', executed_price = ?,
+                total_val = ?, executed_at = ?
             WHERE id = ? AND UPPER(status) = 'PENDING'
         """, (market_price, exec_val, now_iso, order_id))
+        if cursor.rowcount != 1:
+            continue
 
-        if cursor.rowcount > 0:
+        cursor.execute("""
+            UPDATE holdings SET quantity = ?, avg_buy_price = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND portfolio_id = ?
+        """, (new_qty, new_avg, holding_id, ord_row["portfolio_id"]))
+        if cursor.rowcount != 1:
+            raise RuntimeError(f"Holding disappeared while executing order {order_id}; transaction rolled back")
+        cursor.execute("""
+            UPDATE portfolios SET cash_balance = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+        """, (new_cash, ord_row["portfolio_id"]))
+        if cursor.rowcount != 1:
+            raise RuntimeError(f"Portfolio disappeared while executing order {order_id}; transaction rolled back")
+
+        if cursor.rowcount >= 0:
             any_executed = True
             msg = f"Limit order executed at ₹{market_price:,.2f}. {action_word} {qty} shares of {holding['name']} (Total: ₹{exec_val:,.2f})."
             executed_results.append({
@@ -373,6 +387,8 @@ def cancel_pending_order(order_id: str, conn: sqlite3.Connection) -> CancelOrder
     """
     Cancel a pending paper order, releasing reserved cash/shares.
     """
+    if not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id, status, side, quantity, total_val
@@ -389,10 +405,14 @@ def cancel_pending_order(order_id: str, conn: sqlite3.Connection) -> CancelOrder
             detail=f"Cannot cancel order with status '{order['status']}'. Only PENDING orders can be cancelled."
         )
 
-    cursor.execute("UPDATE paper_trades SET status = 'CANCELLED' WHERE id = ?", (order_id,))
+    cursor.execute("UPDATE paper_trades SET status = 'CANCELLED' WHERE id = ? AND UPPER(status) = 'PENDING'", (order_id,))
+    if cursor.rowcount != 1:
+        raise HTTPException(status_code=409, detail="Order status changed; refresh order history and retry.")
     return CancelOrderResponse(
         success=True,
         order_id=order_id,
         status="CANCELLED",
         message=f"Order {order_id} has been cancelled successfully."
     )
+
+

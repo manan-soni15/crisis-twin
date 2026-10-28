@@ -154,6 +154,13 @@ def init_db():
         if "executed_at" not in pt_cols:
             cursor.execute("ALTER TABLE paper_trades ADD COLUMN executed_at TIMESTAMP;")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_paper_trades_status ON paper_trades(portfolio_id, status);")
+        # Record provenance on cached prices so callers can distinguish sourced data.
+        cursor.execute("PRAGMA table_info(prices_cache);")
+        price_cols = {col["name"] for col in cursor.fetchall()}
+        if "source" not in price_cols:
+            cursor.execute("ALTER TABLE prices_cache ADD COLUMN source TEXT NOT NULL DEFAULT 'unverified_third_party';")
+        if "price_type" not in price_cols:
+            cursor.execute("ALTER TABLE prices_cache ADD COLUMN price_type TEXT NOT NULL DEFAULT 'daily_close';")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_paper_trades_holding ON paper_trades(holding_id, status);")
         
         # 8. User Risk Profiles

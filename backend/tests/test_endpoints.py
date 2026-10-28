@@ -1,7 +1,11 @@
 from fastapi.testclient import TestClient
 from backend.app.main import app
+from backend.app.db.database import init_db
 
 client = TestClient(app)
+
+def setup_module():
+    init_db()
 
 def test_health():
     res = client.get("/health")

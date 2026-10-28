@@ -1,142 +1,113 @@
-import sqlite3
-import logging
+"""Daily price provider adapter and SQLite cache.
+
+Massive is the only enabled market-price adapter. It requires an API key and a plan
+that explicitly permits the requested market/endpoint and display use. We do not fall
+back to unofficial scraping or yfinance. If credentials/coverage are unavailable, the
+existing cached or seeded value remains clearly marked as unverified/stale by the API.
+"""
 import datetime
+import logging
 from typing import Dict, List, Optional
-import yfinance as yf
+import requests
+from backend.app.config import settings
 from backend.app.db.database import get_db
 
 logger = logging.getLogger("crisis_twin.price_loader")
+MASSIVE_BASE_URL = "https://api.massive.com"
 
-# Target holding tickers
-HOLDING_TICKERS = {
-    "reliance": "RELIANCE.NS",
-    "indigo": "INDIGO.NS",
-    "hdfc": "HDFCBANK.NS",
-    "tata": "TATAMOTORS.NS",
-    "infy": "INFY.NS",
-    "sun": "SUNPHARMA.NS",
-    "itc": "ITC.NS",
-}
-
-# Target macro factors
-MACRO_TICKERS = {
-    "crude_oil": "CL=F",
-    "usd_inr": "INR=X",
-    "nifty_50": "^NSEI",
-    "india_vix": "^INDIAVIX",
-}
 
 def fetch_and_cache_ticker(ticker: str, period: str = "1mo") -> int:
-    """Download daily prices for a ticker using yfinance and cache in SQLite."""
+    """Fetch daily aggregates from Massive; never silently substitute another source."""
+    if not settings.MASSIVE_API_KEY:
+        logger.warning("Price refresh skipped: MASSIVE_API_KEY is not configured")
+        return 0
+    end = datetime.date.today()
+    days = 95 if period == "3mo" else 35
+    start = end - datetime.timedelta(days=days)
+    url = f"{MASSIVE_BASE_URL}/v2/aggs/ticker/{ticker}/range/1/day/{start.isoformat()}/{end.isoformat()}"
     try:
-        data = yf.download(ticker, period=period, progress=False, auto_adjust=True)
-        if data.empty:
-            logger.warning(f"No data returned for ticker {ticker}")
+        response = requests.get(
+            url,
+            params={"adjusted": "true", "sort": "asc", "limit": 5000, "apiKey": settings.MASSIVE_API_KEY},
+            timeout=15,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if payload.get("status") == "ERROR":
+            logger.warning("Massive returned an error for %s: %s", ticker, payload.get("error"))
             return 0
-        
         records = []
-        now_str = datetime.datetime.utcnow().isoformat()
-        
-        for index, row in data.iterrows():
-            date_str = index.strftime("%Y-%m-%d")
-            # Handle possible MultiIndex or series
-            try:
-                close_val = float(row["Close"].iloc[0] if hasattr(row["Close"], "iloc") else row["Close"])
-                open_val = float(row["Open"].iloc[0] if hasattr(row["Open"], "iloc") else row["Open"])
-                high_val = float(row["High"].iloc[0] if hasattr(row["High"], "iloc") else row["High"])
-                low_val = float(row["Low"].iloc[0] if hasattr(row["Low"], "iloc") else row["Low"])
-                volume_val = float(row["Volume"].iloc[0] if hasattr(row["Volume"], "iloc") else row["Volume"])
-            except Exception:
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        for item in payload.get("results", []):
+            close = float(item.get("c") or 0)
+            if close <= 0:
                 continue
-
-            records.append((ticker, date_str, open_val, high_val, low_val, close_val, volume_val, now_str))
-            
+            date_str = datetime.datetime.fromtimestamp(item["t"] / 1000, datetime.timezone.utc).date().isoformat()
+            records.append((ticker, date_str, item.get("o"), item.get("h"), item.get("l"), close, item.get("v"), now, "Massive", "daily_close"))
+        if not records:
+            logger.warning("Massive returned no usable daily prices for %s", ticker)
+            return 0
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.executemany("""
-                INSERT INTO prices_cache (ticker, date, open, high, low, close, volume, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(ticker, date) DO UPDATE SET
-                    open=excluded.open,
-                    high=excluded.high,
-                    low=excluded.low,
-                    close=excluded.close,
-                    volume=excluded.volume,
-                    updated_at=excluded.updated_at
+            conn.executemany("""
+                INSERT INTO prices_cache (ticker, date, open, high, low, close, volume, updated_at, source, price_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(ticker, date) DO UPDATE SET open=excluded.open, high=excluded.high,
+                    low=excluded.low, close=excluded.close, volume=excluded.volume,
+                    updated_at=excluded.updated_at, source=excluded.source, price_type=excluded.price_type
             """, records)
-            
-        logger.info(f"Cached {len(records)} price records for {ticker}")
         return len(records)
-    except Exception as e:
-        logger.error(f"Failed to fetch data for {ticker}: {e}")
+    except requests.RequestException as exc:
+        logger.warning("Massive price fetch failed for %s: %s", ticker, exc)
+        return 0
+    except (TypeError, ValueError, KeyError) as exc:
+        logger.warning("Invalid Massive response for %s: %s", ticker, exc)
         return 0
 
-def fetch_all_prices():
-    """Batch fetch all portfolio holdings and macro factors."""
-    total = 0
-    for hid, ticker in HOLDING_TICKERS.items():
-        total += fetch_and_cache_ticker(ticker, period="3mo")
-    for fid, ticker in MACRO_TICKERS.items():
-        total += fetch_and_cache_ticker(ticker, period="3mo")
-    return total
+
+def fetch_all_prices() -> int:
+    """Refresh tickers currently held in the database, not a hard-coded ticker list."""
+    with get_db() as conn:
+        tickers = [row["ticker"] for row in conn.execute("SELECT DISTINCT ticker FROM holdings WHERE quantity >= 0")]
+    return sum(fetch_and_cache_ticker(ticker, period="3mo") for ticker in tickers)
+
 
 def get_latest_price(ticker: str) -> Optional[Dict]:
-    """Retrieve the most recent cached price for a ticker."""
     with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT ticker, date, open, high, low, close, volume, updated_at
-            FROM prices_cache
-            WHERE ticker = ?
-            ORDER BY date DESC
-            LIMIT 2
-        """, (ticker,))
-        rows = cursor.fetchall()
-        if not rows:
-            return None
-        
-        latest = dict(rows[0])
-        if len(rows) > 1:
-            prev_close = rows[1]["close"]
-            latest["day_change_pct"] = round(((latest["close"] - prev_close) / prev_close) * 100, 2)
-        else:
-            latest["day_change_pct"] = 0.0
-            
-        return latest
+        rows = conn.execute("""
+            SELECT ticker, date, open, high, low, close, volume, updated_at, source, price_type
+            FROM prices_cache WHERE ticker = ? ORDER BY date DESC LIMIT 2
+        """, (ticker,)).fetchall()
+    if not rows:
+        return None
+    latest = dict(rows[0])
+    latest["day_change_pct"] = round(((latest["close"] - rows[1]["close"]) / rows[1]["close"]) * 100, 2) if len(rows) > 1 and rows[1]["close"] else 0.0
+    return latest
 
-def update_portfolio_from_cache(conn: Optional[sqlite3.Connection] = None):
-    """Recalculate portfolio weights and values based on the latest cached prices."""
+
+def update_portfolio_from_cache(conn=None):
     if conn is not None:
         _do_update_portfolio(conn)
     else:
         with get_db() as new_conn:
             _do_update_portfolio(new_conn)
 
-def _do_update_portfolio(conn: sqlite3.Connection):
+
+def _do_update_portfolio(conn):
     cursor = conn.cursor()
     cursor.execute("SELECT id, ticker, quantity, avg_buy_price, current_price FROM holdings WHERE portfolio_id = 'default'")
     holdings = cursor.fetchall()
-    
     updates = []
-    total_val = 0.0
-    
-    for h in holdings:
-        # Query prices_cache directly with the same connection
-        cursor.execute("SELECT close FROM prices_cache WHERE ticker = ? ORDER BY date DESC LIMIT 1", (h["ticker"],))
+    equity_total = 0.0
+    for holding in holdings:
+        cursor.execute("SELECT close FROM prices_cache WHERE ticker = ? ORDER BY date DESC LIMIT 1", (holding["ticker"],))
         price_row = cursor.fetchone()
-        price = float(price_row["close"]) if price_row else (float(h["current_price"]) if h["current_price"] and h["current_price"] > 0 else float(h["avg_buy_price"]))
-        val = h["quantity"] * price
-        total_val += val
-        updates.append((h["id"], price, val))
-        
-    if total_val > 0:
-        for hid, price, val in updates:
-            weight = round((val / total_val) * 100, 1)
-            cursor.execute("""
-                UPDATE holdings 
-                SET current_price = ?, weight = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            """, (price, weight, hid))
-            
-    logger.info(f"Updated portfolio from cache. Total equity: {total_val}")
-
+        price = float(price_row["close"]) if price_row else (float(holding["current_price"] or 0) if float(holding["current_price"] or 0) > 0 else float(holding["avg_buy_price"] or 0))
+        value = int(holding["quantity"]) * price
+        equity_total += value
+        updates.append((holding["id"], price, value))
+    cash_row = cursor.execute("SELECT cash_balance FROM portfolios WHERE id = 'default'").fetchone()
+    total_portfolio_value = equity_total + (float(cash_row["cash_balance"] or 0) if cash_row else 0)
+    for holding_id, price, value in updates:
+        weight = round(value / total_portfolio_value * 100, 2) if total_portfolio_value > 0 else 0.0
+        cursor.execute("UPDATE holdings SET current_price = ?, weight = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND portfolio_id = 'default'", (price, weight, holding_id))
+    logger.info("Portfolio cache updated. Equity=%s, total portfolio=%s", equity_total, total_portfolio_value)

@@ -80,6 +80,38 @@ def get_portfolio():
             
         total_val = round(cash + total_equity, 2)
         now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        # Prices currently come from a third-party/community library or seeded fallback,
+        # not a provider with verified redistribution rights. Never label them live.
+        cursor.execute("""
+            SELECT pc.ticker, pc.date, pc.updated_at, pc.source
+            FROM prices_cache pc
+            ORDER BY pc.updated_at DESC LIMIT 1
+        """)
+        latest_price_row = cursor.fetchone()
+        cursor.execute("""
+            SELECT COUNT(DISTINCT h.ticker) AS held_tickers,
+                   COUNT(DISTINCT CASE WHEN latest.source = 'Massive' THEN h.ticker END) AS provider_tickers
+            FROM holdings h
+            LEFT JOIN (
+                SELECT p.ticker, p.source
+                FROM prices_cache p
+                JOIN (SELECT ticker, MAX(date) AS max_date FROM prices_cache GROUP BY ticker) newest
+                  ON newest.ticker = p.ticker AND newest.max_date = p.date
+            ) latest ON latest.ticker = h.ticker
+            WHERE h.portfolio_id = 'default' AND h.quantity > 0
+        """)
+        coverage = cursor.fetchone()
+        held_tickers = int(coverage["held_tickers"] or 0)
+        provider_tickers = int(coverage["provider_tickers"] or 0)
+        price_as_of = latest_price_row["date"] if latest_price_row else None
+        if held_tickers and provider_tickers == held_tickers:
+            price_status = "provider_daily_close"
+        elif provider_tickers:
+            price_status = "partial_provider_coverage"
+        elif latest_price_row:
+            price_status = "unverified_cached"
+        else:
+            price_status = "seeded_fallback"
         
         return PortfolioOut(
             portfolio_id="default",
@@ -91,7 +123,10 @@ def get_portfolio():
             holdings=holdings,
             pending_orders_count=pending_orders_count,
             last_updated=now_iso,
-            is_live=True
+            is_live=False,
+            price_status=price_status,
+            price_source=(latest_price_row["source"] if latest_price_row else "seeded_fallback"),
+            price_as_of=price_as_of
         )
 
 @router.post("/paper/trade", response_model=TradeResponse)
@@ -199,7 +234,7 @@ def process_orders():
 @router.post("/portfolio/refresh")
 def refresh_market_data():
     """
-    Trigger background refresh of all stock prices from Yahoo Finance,
+    Refresh daily price cache from the currently configured unverified third-party source,
     update portfolio valuations, and evaluate pending limit orders for execution.
     """
     cached_count = fetch_all_prices()

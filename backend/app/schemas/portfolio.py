@@ -26,6 +26,9 @@ class PortfolioOut(BaseModel):
     pending_orders_count: int = 0
     last_updated: str
     is_live: bool = False
+    price_status: str = "unverified"
+    price_source: Optional[str] = None
+    price_as_of: Optional[str] = None
 
 class TradeRequest(BaseModel):
     holding_id: str
@@ -34,7 +37,7 @@ class TradeRequest(BaseModel):
     order_type: str = Field("market", pattern="^(?i)(market|limit)$")
     price: Optional[float] = None
     limit_price: Optional[float] = None
-    confirmed: bool = True
+    confirmed: bool = False
 
 class TradeResponse(BaseModel):
     success: bool

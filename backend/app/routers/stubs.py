@@ -186,7 +186,7 @@ def debate_room_stub(payload: Dict[str, Any]):
     Day-1 Stub for Manan's Multi-Agent Debate:
     Returns structured claims with cited evidence fields.
     """
-    return {
+    response = {
         "agents": [
             {
                 "agent": "bull",
@@ -215,6 +215,22 @@ def debate_room_stub(payload: Dict[str, Any]):
         ],
         "recommended_action": "Trim cyclical autos and aviation, tilt to defensives."
     }
+    run_id = payload.get("run_id")
+    if run_id:
+        # Do not create orphan audit records: debate output must reference a real run.
+        from backend.app.db.database import get_db
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT id FROM runs WHERE id = ?", (str(run_id),))
+            if not cur.fetchone():
+                from fastapi import HTTPException
+                raise HTTPException(status_code=404, detail="Simulation run not found; run a scenario before starting a debate.")
+            for agent in response["agents"]:
+                cur.execute("""
+                    INSERT INTO agent_logs (run_id, agent, prompt, response, claims_json, confidence, latency_ms)
+                    VALUES (?, ?, ?, ?, ?, ?, 0)
+                """, (str(run_id), agent["agent"], "Debate response for supplied run", agent["text"], json.dumps(agent["claims"]), int(agent["confidence"])))
+    return response
 
 @router.post("/voice/intent")
 def voice_intent_stub(payload: Dict[str, Any]):

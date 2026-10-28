@@ -25,5 +25,6 @@ class Settings:
     
     # Macro fallback API
     FRED_API_KEY: str = os.getenv("FRED_API_KEY", "")
+    MASSIVE_API_KEY: str = os.getenv("MASSIVE_API_KEY", "")
 
 settings = Settings()
