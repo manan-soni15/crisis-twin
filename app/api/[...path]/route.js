@@ -1,7 +1,5 @@
 import { readStore, mutateStore, now } from '@/lib/server/store';
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
 const json = (data, status=200) => Response.json(data,{status});
 const err = (message,status=400) => json({detail:message,message},status);
 const num = (v,d=0) => Number.isFinite(Number(v)) ? Number(v) : d;
