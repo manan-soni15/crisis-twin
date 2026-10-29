@@ -242,7 +242,31 @@ export default function WarRoomExperience() {
     stopSpeaking();
 
     try {
-      const reply = await handleWarRoomCommand(command);
+      let reply;
+      // Keep supported scenario execution on the existing deterministic API.
+      // Use Groq for open-ended portfolio questions and contextual follow-ups.
+      if (isScenarioRequest(command) || resolveContextualScenario(command)) {
+        reply = await handleWarRoomCommand(command);
+      } else {
+        const response = await fetch("/api/intelligence/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: command,
+            history: conversationContextRef.current.slice(-10),
+          }),
+        });
+        const contentType = response.headers.get("content-type") || "";
+        const data = contentType.includes("application/json")
+          ? await response.json().catch(() => ({}))
+          : {};
+        if (!response.ok) {
+          const detail = data.error || `The AI endpoint returned HTTP ${response.status}.`;
+          throw new Error(detail);
+        }
+        if (!data.text) throw new Error("The AI endpoint returned no answer. Check the Next.js terminal for the route error.");
+        reply = { who: data.who || "Crisis Twin AI", text: data.text };
+      }
       conversationContextRef.current = [...conversationContextRef.current, { role: "user", text: command }, { role: "assistant", text: reply.text, who: reply.who }].slice(-12);
       setMessages((current) => [...current, { id: `msg-${Date.now()}-reply`, ...reply }]);
       setLastSpeaker(reply.who);
@@ -252,7 +276,7 @@ export default function WarRoomExperience() {
       const message = error?.message || "The request could not be completed.";
       const reply = {
         who: "Crisis Twin",
-        text: `I couldn't complete that request: ${message}. Please check that the Next.js API is available and try again. I have not substituted sample simulation results.`,
+        text: `I couldn't complete that request: ${message} I have not substituted sample simulation results. If this continues, check the Next.js terminal for the exact API error.`,
       };
       setMessages((current) => [...current, { id: `msg-${Date.now()}-error`, ...reply }]);
       setVoiceStatus("Request failed. Check the backend connection.");

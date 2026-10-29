@@ -1,3 +1,4 @@
+import { handleGroqVoiceWarRoomChat } from '@/lib/server/groq-voice-war-room-chat';
 import { readStore, mutateStore, now } from '@/lib/server/store';
 
 const json = (data, status=200) => Response.json(data,{status});
@@ -34,8 +35,16 @@ function simulate(db,shock){
  return run;
 }
 function asAudit(db,r){const logs=db.agent_logs.filter(l=>l.run_id===r.id).map(l=>({agent:l.agent,text:l.response,confidence:l.confidence}));return {id:r.id,scenario:r.scenario_name,when:String(r.created_at||'').slice(0,10),agents:logs.length,confidence:String(r.confidence||'low').replace(/^./,c=>c.toUpperCase()),model:r.model_version,shocks:r.shocks_json,expected_move_pct:r.expected_move_pct,survival_score:r.survival_score,log:logs};}
+async function handleIntelligenceChat(body){
+ return handleGroqVoiceWarRoomChat(body);
+}
+
 async function handle(req,ctx){
  const {path=[]}=await ctx.params; const p='/'+path.join('/'); const url=new URL(req.url); const method=req.method.toUpperCase(); let body={}; if(['POST','PUT','PATCH'].includes(method)){try{body=await req.json()}catch{body={}}}
+ if(p==='/intelligence/chat'){
+  if(method!=='POST') return err('Method not allowed. Use POST /api/intelligence/chat.',405);
+  return handleIntelligenceChat(body);
+ }
  return mutateStore(db=>{
   if(p==='/health'&&method==='GET') return json({status:'healthy',service:'Crisis Twin Next.js API',version:'1.0.0',environment:process.env.NODE_ENV||'development'});
   if(p==='/portfolio'&&method==='GET') return json(portfolio(db));
