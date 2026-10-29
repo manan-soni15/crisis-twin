@@ -122,6 +122,23 @@
   ],
   "runs": [
     {
+      "id": "run-1793274911111",
+      "scenario_name": "simulate oil prices rising with 10% over 10 days",
+      "shocks_json": "{\"shocks\":[{\"factor\":\"oil_price\",\"change_pct\":10}],\"horizon_days\":10}",
+      "horizon_days": 10,
+      "expected_move_pct": -0.59,
+      "p05": -1.59,
+      "p95": -0.04,
+      "cvar95": -1.79,
+      "survival_score": 99,
+      "confidence": "low",
+      "in_fitted_range": 0,
+      "model_version": "sector-sensitivity-heuristic",
+      "per_holding_json": "[{\"id\":\"reliance\",\"name\":\"Reliance Industries\",\"weight\":15.61,\"impact_pct\":2,\"beta\":0.7,\"breakdown\":[]},{\"id\":\"indigo\",\"name\":\"InterGlobe Aviation\",\"weight\":7.74,\"impact_pct\":-5,\"beta\":0.85,\"breakdown\":[]},{\"id\":\"hdfc\",\"name\":\"HDFC Bank\",\"weight\":17.21,\"impact_pct\":-0.8,\"beta\":0.9,\"breakdown\":[]},{\"id\":\"tata\",\"name\":\"Tata Motors\",\"weight\":10.35,\"impact_pct\":-2.5,\"beta\":1.05,\"breakdown\":[]},{\"id\":\"infy\",\"name\":\"Infosys\",\"weight\":14.75,\"impact_pct\":-0.5,\"beta\":0.8,\"breakdown\":[]},{\"id\":\"sun\",\"name\":\"Sun Pharma\",\"weight\":8.7,\"impact_pct\":0.2,\"beta\":0.6,\"breakdown\":[]},{\"id\":\"itc\",\"name\":\"ITC\",\"weight\":12.15,\"impact_pct\":-0.5,\"beta\":0.75,\"breakdown\":[]}]",
+      "risk_contribution_json": "[{\"id\":\"indigo\",\"share\":0.3102129808501599},{\"id\":\"reliance\",\"share\":0.2502545028977259},{\"id\":\"tata\",\"share\":0.20740984184749064}]",
+      "created_at": "2026-10-29T11:55:11.111Z"
+    },
+    {
       "id": "run-0142",
       "scenario_name": "Oil +25% and rates +100 bps",
       "shocks_json": "{\"oil_price\": {\"change_pct\": 25}, \"policy_rate\": {\"change_bps\": 100}, \"horizon_days\": 10}",
