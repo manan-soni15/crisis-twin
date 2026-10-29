@@ -46,6 +46,187 @@ function summarizeSimulation(result) {
   return `The ${result.horizon_days || 10}-day scenario estimates a ${direction} of ${formatPct(result.expected_move_pct)} for the portfolio. The heuristic range is ${formatPct(result.p05)} to ${formatPct(result.p95)}.${contributorsText} Confidence is low because this uses transparent sector sensitivities, not a calibrated risk model. These figures are scenario estimates, not predictions or investment advice.`;
 }
 
+function cleanInlineMarkdown(value) {
+  return String(value ?? "")
+    .replace(/\\n/g, " ")
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1")
+    .replace(/`{1,3}([^`]+)`{1,3}/g, "$1")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/_(.*?)_/g, "$1")
+    .replace(/~~(.*?)~~/g, "$1")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s*>\s?/gm, "")
+    .replace(/\\([\\`*_{}\[\]()#+\-.!|>])/g, "$1")
+    .replace(/[\u0000-\u001f]+/g, " ")
+    .replace(/[|*`#~<>]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function splitMarkdownTableRow(line) {
+  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  return trimmed.split(/(?<!\\)\|/).map((cell) => cleanInlineMarkdown(cell.trim()));
+}
+
+function isMarkdownTableSeparator(line) {
+  const cells = String(line || "").trim().replace(/^\|/, "").replace(/\|$/, "").split("|");
+  return cells.length > 1 && cells.every((cell) => /^\s*:?-{3,}:?\s*$/.test(cell));
+}
+
+function parseAssistantBlocks(value) {
+  const normalized = String(value ?? "").replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n");
+  const lines = normalized.split(/\r?\n/);
+  const blocks = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index].trim();
+    if (!line || /^\s*[-*_]{3,}\s*$/.test(line)) {
+      index += 1;
+      continue;
+    }
+
+    if (line.includes("|") && index + 1 < lines.length && isMarkdownTableSeparator(lines[index + 1])) {
+      let headers = splitMarkdownTableRow(line);
+      const firstRawCell = line.trim().replace(/^\|/, "").split(/(?<!\\)\|/)[0]?.trim() || "";
+      const looksLikeInlineTableTitle = /^\*\*[^*]+\*\*$/.test(firstRawCell) && cleanInlineMarkdown(firstRawCell).split(/\s+/).length >= 5;
+      if (looksLikeInlineTableTitle && headers.length > 2) {
+        blocks.push({ type: "heading", text: cleanInlineMarkdown(firstRawCell) });
+        headers = headers.slice(1);
+      }
+      index += 2;
+      const rows = [];
+      while (index < lines.length && lines[index].trim().includes("|")) {
+        let cells = splitMarkdownTableRow(lines[index]);
+        if (looksLikeInlineTableTitle && cells.length > headers.length) cells = cells.slice(0, headers.length);
+        if (cells.some(Boolean)) rows.push(cells);
+        index += 1;
+      }
+      blocks.push({ type: "table", headers, rows });
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
+    if (heading) {
+      blocks.push({ type: "heading", text: cleanInlineMarkdown(heading[2]) });
+      index += 1;
+      continue;
+    }
+
+    const listMatch = line.match(/^\s*(?:[-*+]\s+|\d+[.)]\s+)(.+)$/);
+    if (listMatch) {
+      const items = [];
+      while (index < lines.length) {
+        const match = lines[index].trim().match(/^(?:[-*+]\s+|\d+[.)]\s+)(.+)$/);
+        if (!match) break;
+        items.push(cleanInlineMarkdown(match[1]));
+        index += 1;
+      }
+      blocks.push({ type: "list", items });
+      continue;
+    }
+
+    const paragraphLines = [];
+    while (index < lines.length) {
+      const current = lines[index].trim();
+      if (!current || /^\s*[-*_]{3,}\s*$/.test(current)) break;
+      if (/^(#{1,6})\s+/.test(current) || /^\s*(?:[-*+]\s+|\d+[.)]\s+)/.test(current)) break;
+      if (current.includes("|") && index + 1 < lines.length && isMarkdownTableSeparator(lines[index + 1])) break;
+      paragraphLines.push(current);
+      index += 1;
+    }
+    if (paragraphLines.length) {
+      const text = cleanInlineMarkdown(paragraphLines.join(" "));
+      if (text) blocks.push({ type: "paragraph", text });
+    } else {
+      index += 1;
+    }
+  }
+
+  return blocks;
+}
+
+function assistantTextForSpeech(value) {
+  const blocks = parseAssistantBlocks(value);
+  const spoken = [];
+  for (const block of blocks) {
+    if (block.type === "paragraph" || block.type === "heading") {
+      if (block.text) spoken.push(block.text);
+    } else if (block.type === "list") {
+      block.items.forEach((item) => { if (item) spoken.push(item); });
+    } else if (block.type === "table") {
+      const rowsMatchHeaders = block.rows.every((row) => row.length === block.headers.length);
+      for (const row of block.rows) {
+        const parts = rowsMatchHeaders
+          ? row.map((cell, cellIndex) => {
+              const label = block.headers[cellIndex];
+              return cell ? (label ? `${label}: ${cell}` : cell) : "";
+            }).filter(Boolean)
+          : row.filter(Boolean);
+        if (parts.length) spoken.push(parts.join(". "));
+      }
+    }
+  }
+  return spoken.join(". ").replace(/\s+/g, " ").trim();
+}
+
+function renderAssistantText(value) {
+  const blocks = parseAssistantBlocks(value);
+  return (
+    <div className="space-y-3">
+      {blocks.map((block, blockIndex) => {
+        if (block.type === "heading") {
+          return <div key={`heading-${blockIndex}`} className="font-semibold">{block.text}</div>;
+        }
+        if (block.type === "list") {
+          return (
+            <ul key={`list-${blockIndex}`} className="list-disc space-y-1 pl-5">
+              {block.items.map((item, itemIndex) => <li key={`item-${itemIndex}`}>{item}</li>)}
+            </ul>
+          );
+        }
+        if (block.type === "table") {
+          const rowsMatchHeaders = block.rows.every((row) => row.length === block.headers.length);
+          if (!rowsMatchHeaders) {
+            // Some model responses put the title and table headers on one line or produce
+            // narrative rows with fewer cells than the header. Render those as readable cards.
+            return (
+              <div key={`table-${blockIndex}`} className="space-y-2">
+                {block.rows.map((row, rowIndex) => (
+                  <div key={`row-${rowIndex}`} className="rounded-lg border border-line/70 bg-white/35 p-3">
+                    {row[0] && <div className="font-semibold">{row[0]}</div>}
+                    {row.slice(1).filter(Boolean).map((cell, cellIndex) => <p key={`cell-${cellIndex}`} className="mt-1">{cell}</p>)}
+                  </div>
+                ))}
+              </div>
+            );
+          }
+          return (
+            <div key={`table-${blockIndex}`} className="overflow-x-auto rounded-lg border border-line/70">
+              <table className="min-w-full border-collapse text-left text-sm">
+                <thead className="bg-white/60">
+                  <tr>{block.headers.map((header, headerIndex) => <th key={`header-${headerIndex}`} className="border-b border-line/70 px-3 py-2 font-semibold">{header}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {block.rows.map((row, rowIndex) => (
+                    <tr key={`row-${rowIndex}`} className={rowIndex % 2 ? "bg-white/30" : ""}>
+                      {block.headers.map((_, cellIndex) => <td key={`cell-${cellIndex}`} className="border-b border-line/40 px-3 py-2 align-top">{row[cellIndex] || "—"}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+        return <p key={`paragraph-${blockIndex}`} className="whitespace-pre-wrap">{block.text}</p>;
+      })}
+    </div>
+  );
+}
+
 function summarizePortfolio(portfolio) {
   const holdings = (portfolio.holdings || []).filter((holding) => Number(holding.value || 0) > 0);
   const largest = [...holdings].sort((a, b) => Number(b.value || 0) - Number(a.value || 0))[0];
@@ -107,7 +288,9 @@ export default function WarRoomExperience() {
   function speakReply(text) {
     if (!speakReplies || typeof window === "undefined" || !("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
+    const speechText = assistantTextForSpeech(text);
+    if (!speechText) return;
+    const utterance = new SpeechSynthesisUtterance(speechText);
     utterance.lang = "en-IN";
     utterance.rate = 1;
     utterance.pitch = 1;
@@ -243,9 +426,12 @@ export default function WarRoomExperience() {
 
     try {
       let reply;
-      // Keep supported scenario execution on the existing deterministic API.
-      // Use Groq for open-ended portfolio questions and contextual follow-ups.
-      if (isScenarioRequest(command) || resolveContextualScenario(command)) {
+      // Keep the current deterministic simulator for its supported oil/rate/geopolitical
+      // shocks and contextual follow-ups. Route other open-ended or unsupported factors
+      // through Groq so the server-side tool layer can select the appropriate tool.
+      const contextualScenario = resolveContextualScenario(command);
+      const supportedLegacyShock = /\b(oil|crude|interest\s+rates?|policy\s+rates?|repo\s+rates?|geopolitical|sanctions|war)\b/i.test(command);
+      if (contextualScenario || (isScenarioRequest(command) && supportedLegacyShock)) {
         reply = await handleWarRoomCommand(command);
       } else {
         const response = await fetch("/api/intelligence/chat", {
@@ -265,7 +451,12 @@ export default function WarRoomExperience() {
           throw new Error(detail);
         }
         if (!data.text) throw new Error("The AI endpoint returned no answer. Check the Next.js terminal for the route error.");
-        reply = { who: data.who || "Crisis Twin AI", text: data.text };
+        reply = {
+          who: data.who || "Crisis Twin AI",
+          text: data.text,
+          toolCalls: Array.isArray(data.tool_calls) ? data.tool_calls : [],
+          source: data.source || "unknown",
+        };
       }
       conversationContextRef.current = [...conversationContextRef.current, { role: "user", text: command }, { role: "assistant", text: reply.text, who: reply.who }].slice(-12);
       setMessages((current) => [...current, { id: `msg-${Date.now()}-reply`, ...reply }]);
@@ -461,7 +652,7 @@ export default function WarRoomExperience() {
                 <div key={message.id} className={`flex ${message.who === "You" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[90%] rounded-2xl px-4 py-3 ${message.who === "You" ? "bg-ultra text-white" : "bg-mist text-ink"}`}>
                     <div className={`text-sm font-semibold ${message.who === "You" ? "text-ice" : "text-slate"}`}>{message.who}</div>
-                    <p className="mt-1 text-[0.98rem] leading-relaxed">{message.text}</p>
+                    <div className="mt-2 text-[0.98rem] leading-relaxed">{renderAssistantText(message.text)}</div>
                     {message.simulation && (
                       <div className="mt-3 border-t border-ink/15 pt-3 text-sm">
                         <div className="font-semibold">Scenario evidence · {message.simulation.model_version}</div>
