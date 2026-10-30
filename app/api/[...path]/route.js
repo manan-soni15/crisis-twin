@@ -73,7 +73,16 @@ function asAudit(db, r) {
     shocks: r.shocks_json,
     expected_move_pct: r.expected_move_pct,
     survival_score: r.survival_score,
-    log: logs,
+    log: logs.length ? logs : (r.assistant_answer ? [{ agent: 'Crisis Twin AI', text: r.assistant_answer, confidence: r.confidence }] : []),
+    original_question: r.original_question || null,
+    assistant_answer: r.assistant_answer || null,
+    record_type: r.record_type || 'simulation',
+    saved_by_user: Boolean(r.saved_by_user),
+    expected_move_pct: r.expected_move_pct ?? null,
+    p05: r.p05 ?? null,
+    p95: r.p95 ?? null,
+    survival_score: r.survival_score ?? null,
+    created_at: r.created_at || null,
   };
 }
 
@@ -424,3 +433,4 @@ export async function GET(req, ctx) {
 export async function POST(req, ctx) {
   return handle(req, ctx);
 }
+

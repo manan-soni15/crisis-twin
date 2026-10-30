@@ -56,6 +56,7 @@ export default function CrisisDrillPage() {
   const [completed, setCompleted] = useState(false);
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
+  const autoStartHandledRef = useRef(false);
 
   const event = drill?.scenario?.events?.[roundIndex] || null;
   const progress = drill ? Math.round(((roundIndex + (completed ? 1 : 0)) / drill.scenario.events.length) * 100) : 0;
@@ -110,6 +111,15 @@ export default function CrisisDrillPage() {
       setVoiceError(error.message || "Could not start the drill.");
     } finally { setBusy(false); }
   }, [selectedScenario]);
+
+  useEffect(() => {
+    if (autoStartHandledRef.current || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("start") !== "1") return;
+    autoStartHandledRef.current = true;
+    void startDrill();
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [startDrill]);
 
   const submitDecision = useCallback(async (choice, source = "tap") => {
     if (!drill || !event || busy || feedback || completed) return;
@@ -300,3 +310,4 @@ export default function CrisisDrillPage() {
     </>
   );
 }
+

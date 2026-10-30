@@ -8,56 +8,10 @@ import { Panel, Button, Tag } from "@/components/ui";
 import { Ring } from "@/components/viz/Charts";
 import { pct } from "@/lib/sample";
 
-const FALLBACK_RUNS = [
-  {
-    id: "run-01",
-    scenario_name: "Oil +25% and rates +100 bps",
-    survival_score: 72,
-    expected_move_pct: -4.1,
-    p05: -6.8,
-    p95: -1.9,
-    confidence: "Medium",
-    hidden_risk: "HDFC Bank and Tata Motors share auto-credit risk. Together they are 32% of the portfolio.",
-    fix_description: "Trim Tata Motors from 12% to 8% and IndiGo from 9% to 6%, then add 7 points of defensives.",
-  },
-  {
-    id: "run-02",
-    scenario_name: "Geopolitical conflict",
-    survival_score: 66,
-    expected_move_pct: -5.2,
-    p05: -8.4,
-    p95: -2.3,
-    confidence: "Low",
-    hidden_risk: "Oil supply disruption hits aviation while IT margins contract from global risk-off posture.",
-    fix_description: "Hedge with defensive consumer and pharma holdings, maintaining cash buffer above 15%.",
-  },
-  {
-    id: "run-03",
-    scenario_name: "Auto-sector scandal",
-    survival_score: 84,
-    expected_move_pct: -2.3,
-    p05: -4.5,
-    p95: -0.8,
-    confidence: "High",
-    hidden_risk: "Automotive supplier and retail credit contagion exposes private sector bank loans.",
-    fix_description: "Trim automotive allocation to benchmark neutral and rotate into defensive FMCG.",
-  },
-  {
-    id: "run-04",
-    scenario_name: "Rates +150 bps",
-    survival_score: 77,
-    expected_move_pct: -3.5,
-    p05: -5.9,
-    p95: -1.2,
-    confidence: "Medium",
-    hidden_risk: "High loan-to-value credit books face margin compression under prolonged high policy rates.",
-    fix_description: "Reduce leveraged cyclicals and allocate into high dividend-yield cash generators.",
-  },
-];
-
 export default function ReportExperience() {
-  const [runs, setRuns] = useState(FALLBACK_RUNS);
-  const [selectedRun, setSelectedRun] = useState(FALLBACK_RUNS[0]);
+  const [runs, setRuns] = useState([]);
+  const [selectedRun, setSelectedRun] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
   // Load real simulation runs from database
@@ -65,23 +19,28 @@ export default function ReportExperience() {
     fetch("/api/audit/runs")
       .then((r) => r.json())
       .then((d) => {
-        if (d && Array.isArray(d.runs) && d.runs.length > 0) {
-          const mapped = d.runs.map((r, i) => ({
+        const mapped = (Array.isArray(d?.runs) ? d.runs : []).map((r, i) => {
+          let saved = {};
+          try { saved = typeof r.shocks === "string" ? JSON.parse(r.shocks) : (r.shocks || {}); } catch {}
+          return {
             id: r.id || `run-${i}`,
-            scenario_name: r.scenario || "Stress scenario",
-            survival_score: r.survival_score || Math.max(50, Math.min(95, Math.round(100 + Number(r.expected_move_pct || -4) * 2))),
-            expected_move_pct: Number(r.expected_move_pct || -4.1),
-            p05: Math.round((Number(r.expected_move_pct || -4.1) * 1.6) * 10) / 10,
-            p95: Math.round((Number(r.expected_move_pct || -4.1) * 0.45) * 10) / 10,
-            confidence: r.confidence || "Medium",
-            hidden_risk: "Auto loans and banking credit dependencies share high correlation under stress.",
-            fix_description: "Trim volatile cyclicals by 4-5% and allocate to defensive pharma/FMCG positions.",
-          }));
-          setRuns(mapped);
-          setSelectedRun(mapped[0]);
-        }
+            scenario_name: r.scenario || "Saved analysis",
+            survival_score: r.survival_score == null ? null : Number(r.survival_score),
+            expected_move_pct: r.expected_move_pct == null ? null : Number(r.expected_move_pct),
+            p05: r.p05 == null ? null : Number(r.p05),
+            p95: r.p95 == null ? null : Number(r.p95),
+            confidence: r.confidence || "Unrated",
+            hidden_risk: r.assistant_answer || saved.answer || "Saved result. Review the original question and assumptions in the audit trail.",
+            original_question: r.original_question || saved.question || null,
+            record_type: r.record_type || "simulation",
+            fix_description: r.original_question ? `Original request: ${r.original_question}` : "Review the scenario assumptions before acting on the result.",
+          };
+        });
+        setRuns(mapped);
+        setSelectedRun(mapped[0] || null);
       })
-      .catch(() => {});
+      .catch(() => { setRuns([]); setSelectedRun(null); })
+      .finally(() => setLoading(false));
   }, []);
 
   const handlePrint = () => {
@@ -98,18 +57,21 @@ export default function ReportExperience() {
     }
   };
 
-  const survival = selectedRun?.survival_score ?? 72;
-  const survivalFrac = Math.max(0, Math.min(1, survival / 100));
-  const expected = selectedRun?.expected_move_pct ?? -4.1;
-  const p05 = selectedRun?.p05 ?? -6.8;
-  const p95 = selectedRun?.p95 ?? -1.9;
-  const afterFix = Math.round((expected * 0.82) * 10) / 10;
+  const survival = selectedRun?.survival_score;
+  const survivalFrac = Math.max(0, Math.min(1, Number(survival || 0) / 100));
+  const expected = selectedRun?.expected_move_pct;
+  const p05 = selectedRun?.p05;
+  const p95 = selectedRun?.p95;
+  const afterFix = expected == null ? null : Math.round((expected * 0.82) * 10) / 10;
   const confTone =
     selectedRun?.confidence === "High"
       ? "gain"
       : selectedRun?.confidence === "Low"
       ? "loss"
       : "neutral";
+
+  if (loading) return <><PageHeader title="Report card" description="Saved simulation and portfolio-analysis reports." /><Panel title="Saved runs">Loading saved reports…</Panel></>;
+  if (!runs.length || !selectedRun) return <><PageHeader title="Report card" description="Saved simulation and portfolio-analysis reports." actions={<Button icon="download" onClick={handlePrint}>Download PDF</Button>} /><Panel title="No saved reports yet"><p className="text-sm text-slate">Run a simulation or ask Crisis Twin AI for a portfolio analysis, then choose “Save to Audit Trail &amp; Report Card” on the answer. Only saved results appear here.</p></Panel><NextSteps href="/report" /></>;
 
   return (
     <>
@@ -173,7 +135,7 @@ export default function ReportExperience() {
             <div className="mt-8 grid items-center gap-8 sm:grid-cols-[auto_1fr]">
               <Ring value={survivalFrac} size={150} stroke={13} color="#1a2fd4">
                 <div>
-                  <div className="display num text-[2.6rem]">{survival}</div>
+                  <div className="display num text-[2.6rem]">{survival == null ? "N/A" : survival}</div>
                   <div className="text-xs text-slate">Survival score</div>
                 </div>
               </Ring>
@@ -181,19 +143,19 @@ export default function ReportExperience() {
                 <div>
                   <dt className="text-sm text-slate">Expected move</dt>
                   <dd className="display num text-[1.9rem] text-ember-deep">
-                    {pct(expected)}
+                    {expected == null ? "N/A" : pct(expected)}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-sm text-slate">Likely range</dt>
                   <dd className="display num text-[1.9rem]">
-                    {pct(p05)} to {pct(p95)}
+                    {p05 == null || p95 == null ? "Not provided" : `${pct(p05)} to ${pct(p95)}`}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-sm text-slate">After suggested fixes</dt>
                   <dd className="display num text-[1.9rem] text-ultra">
-                    {pct(afterFix)}
+                    {afterFix == null ? "N/A" : pct(afterFix)}
                   </dd>
                 </div>
                 <div>
@@ -206,17 +168,16 @@ export default function ReportExperience() {
             </div>
             <div className="mt-9 grid gap-6 border-t border-line pt-6 sm:grid-cols-2">
               <div>
-                <h3 className="head text-lg">Biggest hidden risk</h3>
+                <h3 className="head text-lg">{selectedRun?.record_type === "assistant_analysis" ? "Saved assistant analysis" : "Biggest hidden risk"}</h3>
                 <p className="mt-1.5 text-[0.97rem] text-slate">
                   {selectedRun?.hidden_risk ||
                     "HDFC Bank and Tata Motors share auto-credit risk. Together they are 32% of the portfolio."}
                 </p>
               </div>
               <div>
-                <h3 className="head text-lg">Recommended fix</h3>
+                <h3 className="head text-lg">{selectedRun?.record_type === "assistant_analysis" ? "Original request" : "Recommended fix"}</h3>
                 <p className="mt-1.5 text-[0.97rem] text-slate">
-                  {selectedRun?.fix_description ||
-                    "Trim Tata Motors from 12% to 8% and IndiGo from 9% to 6%, then add 7 points of defensives."}
+                  {selectedRun?.record_type === "assistant_analysis" ? (selectedRun?.original_question || selectedRun?.fix_description) : (selectedRun?.fix_description || "Review the scenario assumptions before acting on the result.")}
                 </p>
               </div>
             </div>

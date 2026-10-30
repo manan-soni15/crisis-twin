@@ -53,8 +53,8 @@ export default function AuditTable({ rows }) {
                   <div>
                     <div className="mb-1.5 text-sm text-slate">Agent log</div>
                     <ul className="space-y-2 text-[0.92rem]">
-                      {r.log.map((l) => (
-                        <li key={l.agent} className="flex gap-3"><span className="w-28 shrink-0 font-semibold">{l.agent}</span><span className="text-slate">{l.text}</span></li>
+                      {r.log.map((l, index) => (
+                        <li key={`${l.agent || "agent"}-${index}`} className="flex gap-3"><span className="w-28 shrink-0 font-semibold">{l.agent}</span><span className="text-slate">{l.text}</span></li>
                       ))}
                     </ul>
                     <div className="mt-3 text-sm text-slate">Model version {r.model}</div>

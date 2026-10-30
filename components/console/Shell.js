@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import Logo from "@/components/Logo";
 import { Icon } from "@/components/Icons";
 import { NAV, findRoute } from "@/lib/nav";
+import CrisisTwinAssistant from "@/components/CrisisTwinAssistant";
 
 function Rail({ pathname, onNavigate }) {
   return (
@@ -102,6 +103,7 @@ export default function Shell({ children }) {
           <div className="mx-auto max-w-[1180px]">{children}</div>
         </main>
       </div>
+      <CrisisTwinAssistant />
     </div>
   );
 }
