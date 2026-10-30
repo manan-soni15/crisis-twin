@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import PageHeader from "@/components/console/PageHeader";
 import NextSteps from "@/components/console/NextSteps";
 import AgentMark from "@/components/AgentMark";
@@ -12,25 +12,25 @@ const INITIAL_MESSAGES = [
     name: "Bull",
     role: "Finds opportunity",
     conf: 3,
-    evidence: "holding_impact.reliance, holding_impact.sun",
-    text: "Reliance gains 4.0% on higher crude and Sun Pharma barely moves. The damage sits in a few names, so a small, targeted trim fixes most of it. No need to sell the core.",
+    evidence: "holding_impact.reliance, holding_impact.sun, dii_sip_support",
+    text: "Reliance gains 4.0% on gross refining margin (GRM) expansion and Sun Pharma holds steady. Domestic mutual fund SIP inflows (~₹20,000+ Cr/month) create a persistent valuation floor. Panic-selling the core locks in temporary factor drawdowns.",
   },
   {
     agent: "bear",
     name: "Bear",
     role: "Attacks the plan",
     conf: 4,
-    evidence: "holding_impact.hdfc, holding_impact.tata, weights",
-    text: "Two winners do not cancel three losers. HDFC Bank falls 6.3% on the rate move, and Tata Motors and IndiGo both fall more than 12%. Together those three are 41% of the portfolio.",
+    evidence: "holding_impact.hdfc, holding_impact.tata, weights, cad_expansion",
+    text: "Two resilient names cannot cancel three heavy cyclical losers. HDFC Bank falls 6.3% on the rate move, and Tata Motors and IndiGo plunge over 12%. Together they make up 41% of the book as crude expands India's CAD.",
   },
   {
     agent: "audit",
     name: "Risk Auditor",
     role: "Checks hidden exposure",
     conf: 4,
-    evidence: "risk_contribution, correlation_in_stress",
+    evidence: "risk_contribution, correlation_in_stress, auto_credit_spillover",
     wide: true,
-    text: "HDFC Bank and Tata Motors share auto-credit risk, and together they are 32% of the portfolio. In stress their correlation rises sharply, so holding both at full size is less diversified than it looks. I disagree with the Bull on keeping the core untouched.",
+    text: "HDFC Bank and Tata Motors share retail vehicle-financing exposure, representing 32% of total capital. In stress their correlation spikes towards 0.82, rendering nominal diversification ineffective. Reallocation toward defensives is essential.",
   },
 ];
 
@@ -52,8 +52,18 @@ export default function DebateExperience() {
   const [loading, setLoading] = useState(false);
   const [rebuttalLoading, setRebuttalLoading] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [activeSpeakerIdx, setActiveSpeakerIdx] = useState(null);
   const [appliedActions, setAppliedActions] = useState({});
   const [applyingIdx, setApplyingIdx] = useState(null);
+
+  // Stop audio speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   // Fetch live debate from backend
   const fetchDebate = useCallback(async (includeRebuttal = false) => {
@@ -149,13 +159,14 @@ export default function DebateExperience() {
     }
   };
 
-  // Web Speech Text-to-Speech audio reader
+  // Web Speech Text-to-Speech audio reader with active speaker tracking
   const handleToggleAudio = () => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
 
     if (isSpeaking) {
       window.speechSynthesis.cancel();
       setIsSpeaking(false);
+      setActiveSpeakerIdx(null);
       return;
     }
 
@@ -183,9 +194,21 @@ export default function DebateExperience() {
     });
 
     utterances.forEach((u, i) => {
-      if (i === utterances.length - 1) {
-        u.onend = () => setIsSpeaking(false);
-      }
+      u.onstart = () => {
+        setActiveSpeakerIdx(i);
+      };
+      u.onend = () => {
+        if (i === utterances.length - 1) {
+          setIsSpeaking(false);
+          setActiveSpeakerIdx(null);
+        }
+      };
+      u.onerror = () => {
+        if (i === utterances.length - 1) {
+          setIsSpeaking(false);
+          setActiveSpeakerIdx(null);
+        }
+      };
       window.speechSynthesis.speak(u);
     });
   };
@@ -203,7 +226,7 @@ export default function DebateExperience() {
     <>
       <PageHeader
         title="Debate room"
-        description="A Bull proposes, a Bear attacks, and an independent Risk Auditor checks the numbers. Every claim points at the evidence it used."
+        description="A Bull proposes, a Bear attacks, and an independent Risk Auditor checks the numbers with Dalal Street macro grounding."
         actions={
           <>
             <Button
@@ -219,7 +242,7 @@ export default function DebateExperience() {
               {rebuttalLoading ? "Adding..." : "Add a rebuttal round"}
             </Button>
             <Button
-              variant="ghost"
+              variant={isSpeaking ? "primary" : "ghost"}
               onClick={handleToggleAudio}
             >
               {isSpeaking ? "Pause audio 🔊" : "Listen to debate 🎙️"}
@@ -235,6 +258,11 @@ export default function DebateExperience() {
         <Tag tone={expectedMove < 0 ? "loss" : "gain"}>
           Expected move {expectedMove > 0 ? "+" : "−"}{Math.abs(expectedMove)}%
         </Tag>
+        {debateData?.model && (
+          <span className="rounded-full bg-mist px-2.5 py-0.5 text-xs text-slate">
+            Model: {debateData.model}
+          </span>
+        )}
         <span className="ml-auto">
           <TextLink href="/simulator">Change scenario</TextLink>
         </span>
@@ -243,70 +271,105 @@ export default function DebateExperience() {
       <div className="grid gap-5 lg:grid-cols-12">
         {/* Left Column: Debate Cards */}
         <div className="space-y-5 lg:col-span-8">
-          {messages.map((m) => (
-            <article
-              key={m.agent + m.name}
-              className={`rounded-[10px] border p-5 ${
-                m.wide ? "border-mint/50 bg-mint-soft/60" : "border-line bg-bone"
-              } ${
-                m.agent === "bear"
-                  ? "sm:ml-12"
-                  : m.agent === "bull"
-                  ? "sm:mr-12"
-                  : ""
-              }`}
-            >
-              <header className="flex items-center gap-3">
-                <AgentMark agent={m.agent} />
-                <div>
-                  <h2 className="head text-[1.15rem]">{m.name}</h2>
-                  <p className="text-sm text-slate">{m.role}</p>
-                </div>
-                <div className="ml-auto flex items-center gap-2 text-sm text-slate">
-                  Confidence{" "}
-                  <Meter
-                    value={m.conf}
-                    tone={
-                      m.agent === "bear"
-                        ? "ember"
-                        : m.agent === "audit"
-                        ? "mint"
-                        : "ultra"
-                    }
-                  />
-                </div>
-              </header>
-              <p className="serif mt-4 text-[1.22rem] leading-snug">{m.text}</p>
-              <p className="mt-3 text-sm text-slate">Evidence: {m.evidence}</p>
-            </article>
-          ))}
+          {messages.map((m, idx) => {
+            const isActiveSpeaker = isSpeaking && activeSpeakerIdx === idx;
+            return (
+              <article
+                key={m.agent + m.name}
+                className={`rounded-[10px] border p-5 transition-all duration-300 ${
+                  isActiveSpeaker
+                    ? "ring-2 ring-ultra shadow-lg shadow-ultra/20 border-ultra scale-[1.01]"
+                    : m.wide
+                    ? "border-mint/50 bg-mint-soft/60"
+                    : "border-line bg-bone"
+                } ${
+                  m.agent === "bear"
+                    ? "sm:ml-12"
+                    : m.agent === "bull"
+                    ? "sm:mr-12"
+                    : ""
+                }`}
+              >
+                <header className="flex items-center gap-3">
+                  <AgentMark agent={m.agent} />
+                  <div>
+                    <h2 className="head text-[1.15rem] flex items-center gap-2">
+                      {m.name}
+                      {isActiveSpeaker && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-ultra/30 bg-ultra/10 px-2 py-0.5 text-ultra text-[0.7rem] font-bold uppercase tracking-wider">
+                          <span className="inline-block h-2 w-1 animate-pulse rounded-full bg-ultra" />
+                          <span className="inline-block h-3.5 w-1 animate-pulse rounded-full bg-ultra" />
+                          <span className="inline-block h-1.5 w-1 animate-pulse rounded-full bg-ultra" />
+                          <span>Speaking</span>
+                        </span>
+                      )}
+                    </h2>
+                    <p className="text-sm text-slate">{m.role}</p>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2 text-sm text-slate">
+                    Confidence{" "}
+                    <Meter
+                      value={m.conf}
+                      tone={
+                        m.agent === "bear"
+                          ? "ember"
+                          : m.agent === "audit"
+                          ? "mint"
+                          : "ultra"
+                      }
+                    />
+                  </div>
+                </header>
+                <p className="serif mt-4 text-[1.22rem] leading-snug">{m.text}</p>
+                <p className="mt-3 text-sm text-slate">Evidence: {m.evidence}</p>
+              </article>
+            );
+          })}
 
           {/* Rebuttal Round Messages */}
-          {rebuttals.map((r, idx) => (
-            <article
-              key={`rebuttal-${idx}`}
-              className={`rounded-[10px] border p-5 border-ultra/40 bg-ice/40 ${
-                r.agent === "bear" ? "sm:ml-12" : "sm:mr-12"
-              }`}
-            >
-              <header className="flex items-center gap-3">
-                <AgentMark agent={r.agent} />
-                <div>
-                  <h2 className="head text-[1.15rem]">{r.name}</h2>
-                  <p className="text-sm text-slate">{r.role}</p>
-                </div>
-                <div className="ml-auto flex items-center gap-2 text-sm text-slate">
-                  Confidence{" "}
-                  <Meter
-                    value={r.conf}
-                    tone={r.agent === "bear" ? "ember" : "ultra"}
-                  />
-                </div>
-              </header>
-              <p className="serif mt-4 text-[1.22rem] leading-snug">{r.text}</p>
-              <p className="mt-3 text-sm text-slate">Evidence: {r.evidence}</p>
-            </article>
-          ))}
+          {rebuttals.map((r, idx) => {
+            const rebuttalSpeakerIdx = messages.length + idx;
+            const isActiveSpeaker = isSpeaking && activeSpeakerIdx === rebuttalSpeakerIdx;
+            return (
+              <article
+                key={`rebuttal-${idx}`}
+                className={`rounded-[10px] border p-5 border-ultra/40 bg-ice/40 transition-all duration-300 ${
+                  isActiveSpeaker
+                    ? "ring-2 ring-ultra shadow-lg shadow-ultra/20 border-ultra scale-[1.01]"
+                    : ""
+                } ${
+                  r.agent === "bear" ? "sm:ml-12" : "sm:mr-12"
+                }`}
+              >
+                <header className="flex items-center gap-3">
+                  <AgentMark agent={r.agent} />
+                  <div>
+                    <h2 className="head text-[1.15rem] flex items-center gap-2">
+                      {r.name}
+                      {isActiveSpeaker && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-ultra/30 bg-ultra/10 px-2 py-0.5 text-ultra text-[0.7rem] font-bold uppercase tracking-wider">
+                          <span className="inline-block h-2 w-1 animate-pulse rounded-full bg-ultra" />
+                          <span className="inline-block h-3.5 w-1 animate-pulse rounded-full bg-ultra" />
+                          <span className="inline-block h-1.5 w-1 animate-pulse rounded-full bg-ultra" />
+                          <span>Speaking</span>
+                        </span>
+                      )}
+                    </h2>
+                    <p className="text-sm text-slate">{r.role}</p>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2 text-sm text-slate">
+                    Confidence{" "}
+                    <Meter
+                      value={r.conf}
+                      tone={r.agent === "bear" ? "ember" : "ultra"}
+                    />
+                  </div>
+                </header>
+                <p className="serif mt-4 text-[1.22rem] leading-snug">{r.text}</p>
+                <p className="mt-3 text-sm text-slate">Evidence: {r.evidence}</p>
+              </article>
+            );
+          })}
         </div>
 
         {/* Right Column: Recommendations & Record */}
