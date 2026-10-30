@@ -243,14 +243,6 @@ export default function SimulatorExperience() {
   const rangeMin = Math.min(-10, Math.floor(p05 - 1.5));
   const rangeMax = Math.max(0, Math.ceil(p95 + 1));
 
-  // Extreme tail-risk check (>3-sigma)
-  const isExtremeTailRisk =
-    simResult?.correlation_breakdown_alert?.triggered ||
-    Math.abs(expected) >= 5.0 ||
-    sliderVals.vol >= 50 ||
-    Math.abs(sliderVals.oil) >= 35 ||
-    sliderVals.rate >= 150;
-
   const activeRunId = committedRunId || simResult?.run_id || "";
 
   return (
@@ -271,9 +263,6 @@ export default function SimulatorExperience() {
               placeholder="Ex: What if oil jumps 25% and the central bank raises rates by a full point?"
               className="w-full resize-none rounded-lg border border-line bg-white p-3.5 text-[1.02rem] leading-relaxed focus:border-ultra focus:outline-none"
             />
-            <p className="mt-2 text-xs text-slate">
-              <span className="font-semibold text-slate-600">Ex:</span> &ldquo;What if oil jumps 25% and the central bank raises rates by a full point?&rdquo;
-            </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {PRESETS.map((s) => (
                 <button
@@ -396,22 +385,6 @@ export default function SimulatorExperience() {
                 "The scenario sits inside the range of data the model was fitted on, so the range is trustworthy. Large moves outside that range lower the confidence level and show a warning here."}
             </p>
           </Panel>
-
-          {/* Fat-Tail Correlation Breakdown Alert (>3-sigma Shock) */}
-          {isExtremeTailRisk && (
-            <div className="rounded-[10px] border border-ember/50 bg-ember-soft/50 p-4 transition-all duration-300">
-              <div className="flex items-center gap-2 font-bold text-ember-deep text-[0.95rem]">
-                <span className="text-base">⚠️</span>
-                <span>Correlation Breakdown Alert (Extreme &gt;3σ Shock)</span>
-                <span className="ml-auto rounded-full bg-ember px-2.5 py-0.5 text-[0.7rem] text-white uppercase font-bold tracking-wider">
-                  Fat-Tail Risk
-                </span>
-              </div>
-              <p className="mt-2 text-[0.92rem] leading-relaxed text-ink/85">
-                When macro shocks exceed 3-sigma thresholds, historical covariance breaks down: empirical asset correlations typically surge toward <b>1.0</b> in acute market panic, neutralizing standard linear diversification benefits.
-              </p>
-            </div>
-          )}
 
           <Panel title="Before and after">
             <div className="grid gap-5 sm:grid-cols-2">
