@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { SHOCKS, SECTORS, HOLDINGS, SECTOR_IMPACT, ORIGIN, HIDDEN_LINKS, holdingImpact, pct } from "@/lib/sample";
 
-const W = 680;
+const W = 820;
 const H = 540;
-const SH = { x: 14, w: 140, h: 40, cy: [108, 216, 324, 432] };
-const SE = { x: 270, w: 130, h: 36 };
-const HO = { x: 500, w: 166, h: 36 };
+const SH = { x: 14, w: 145, h: 42, cy: [108, 216, 324, 432] };
+const SE = { x: 275, w: 165, h: 38 };
+const HO = { x: 535, w: 250, h: 38 };
 const rowY = (i) => 54 + i * 72;
 
 const curve = (x1, y1, x2, y2) => {
@@ -185,13 +185,33 @@ export default function ShockGraph({
                 fill="transparent" stroke="currentColor" strokeOpacity="0.4"
                 style={{ "--c": col(v), "--d": d }}
               />
-              <text className={on ? "pillText" : ""} x={SE.x + 14} y={rowY(i) + 4.5} fontSize="13" fontWeight="550" fill="currentColor" style={{ "--d": d }}>
+              <text className={on ? "pillText" : ""} x={SE.x + 14} y={rowY(i) + 4.5} fontSize="12.5" fontWeight="550" fill="currentColor" style={{ "--d": d }}>
                 {s.label}
               </text>
               {on && (
-                <text className="val num" x={SE.x + SE.w - 12} y={rowY(i) + 4.5} textAnchor="end" fontSize="12" fontWeight="650" fill="#0e1433" style={{ "--d": d }}>
-                  {pct(v, 0)}
-                </text>
+                <g className="val" style={{ "--d": d }}>
+                  <rect
+                    x={SE.x + SE.w - 56}
+                    y={rowY(i) - 11}
+                    width={46}
+                    height={22}
+                    rx={6}
+                    fill="#ffffff"
+                    stroke="rgba(14, 20, 51, 0.15)"
+                    strokeWidth="1"
+                  />
+                  <text
+                    className="num"
+                    x={SE.x + SE.w - 33}
+                    y={rowY(i) + 4.5}
+                    textAnchor="middle"
+                    fontSize="11.5"
+                    fontWeight="800"
+                    fill="#0e1433"
+                  >
+                    {pct(v, 0)}
+                  </text>
+                </g>
               )}
             </g>
           );
@@ -200,7 +220,7 @@ export default function ShockGraph({
         {/* holding pills */}
         {holdingsList.map((h, i) => {
           const v = h.impact_pct !== undefined ? h.impact_pct : holdingImpact(scenario, h);
-          const on = Math.abs(v) >= 0.5;
+          const on = Math.abs(v) >= 1;
           const d = `${1.35 + i * 0.05}s`;
           return (
             <g key={h.id} className={nodeLit(h.id) ? "lit" : "dim"} {...focusProps(h.id)}>
@@ -210,13 +230,33 @@ export default function ShockGraph({
                 fill="transparent" stroke="currentColor" strokeOpacity="0.4"
                 style={{ "--c": col(v), "--d": d }}
               />
-              <text className={on ? "pillText" : ""} x={HO.x + 14} y={rowY(i) + 4.5} fontSize="13" fontWeight="550" fill="currentColor" style={{ "--d": d }}>
+              <text className={on ? "pillText" : ""} x={HO.x + 14} y={rowY(i) + 4.5} fontSize="12.5" fontWeight="550" fill="currentColor" style={{ "--d": d }}>
                 {h.name}
               </text>
               {on && (
-                <text className="val num" x={HO.x + HO.w - 12} y={rowY(i) + 4.5} textAnchor="end" fontSize="12.5" fontWeight="700" fill="#0e1433" style={{ "--d": d }}>
-                  {pct(v)}
-                </text>
+                <g className="val" style={{ "--d": d }}>
+                  <rect
+                    x={HO.x + HO.w - 62}
+                    y={rowY(i) - 11}
+                    width={52}
+                    height={22}
+                    rx={6}
+                    fill="#ffffff"
+                    stroke="rgba(14, 20, 51, 0.15)"
+                    strokeWidth="1"
+                  />
+                  <text
+                    className="num"
+                    x={HO.x + HO.w - 36}
+                    y={rowY(i) + 4.5}
+                    textAnchor="middle"
+                    fontSize="12"
+                    fontWeight="800"
+                    fill="#0e1433"
+                  >
+                    {pct(v)}
+                  </text>
+                </g>
               )}
             </g>
           );
