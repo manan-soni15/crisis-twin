@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { Panel, Button } from "@/components/ui";
+import StockSearchField from "@/components/StockSearchField";
 
 const SECTORS = ["energy", "airlines", "banks", "auto", "it", "pharma", "fmcg", "financials", "consumer", "healthcare", "industrials", "other"];
-const blank = () => ({ name: "", ticker: "", sector: "other", quantity: "", avg_buy_price: "", current_price: "", purchase_date: "" });
+const blank = () => ({ name: "", ticker: "", sector: "other", exchange: "", quantity: "", avg_buy_price: "", current_price: "", purchase_date: "" });
 
 export default function PortfolioSetup({ onImported }) {
   const [mode, setMode] = useState("");
@@ -54,13 +55,25 @@ export default function PortfolioSetup({ onImported }) {
   async function handlePdf(file) {
     if (!file) return;
     setFileName(file.name);
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      setStatus("Unsupported file type. Please choose a PDF file.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setStatus("This PDF is larger than 10 MB. Export a smaller statement or enter holdings manually.");
+      return;
+    }
     setStatus("Reading PDF text. Scanned/image-only PDFs may need manual entry.");
     setBusy(true);
     try {
       const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
       pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const pdf = await pdfjs.getDocument({ data: bytes }).promise;
+      const pdf = await pdfjs.getDocument({ data: bytes, maxImageSize: 10000000 }).promise;
+      if (!pdf.numPages || pdf.numPages > 100) {
+        await pdf.destroy();
+        throw new Error("PDF must contain between 1 and 100 pages.");
+      }
       let fullText = "";
       for (let pageNo = 1; pageNo <= pdf.numPages; pageNo += 1) {
         const page = await pdf.getPage(pageNo);
@@ -86,7 +99,7 @@ export default function PortfolioSetup({ onImported }) {
         const quantity = Number(match[3].replace(/,/g, ""));
         const price = Number(match[4].replace(/,/g, ""));
         if (name && Number.isFinite(quantity) && quantity > 0 && Number.isFinite(price) && price >= 0) {
-          parsed.push({ name, ticker, sector: "other", quantity: String(quantity), avg_buy_price: String(price), current_price: String(price), purchase_date: "" });
+          parsed.push({ name, ticker, sector: "other", quantity: String(quantity), avg_buy_price: String(price), current_price: "", purchase_date: "" });
         }
       }
       const unique = parsed.filter((row, index) => parsed.findIndex((x) => x.name === row.name && x.ticker === row.ticker) === index).slice(0, 100);
@@ -95,7 +108,7 @@ export default function PortfolioSetup({ onImported }) {
       } else {
         setRows(unique);
         setMode("manual");
-        setStatus(`Extracted ${unique.length} possible holding(s). Review every row and correct any errors before saving.`);
+        setStatus(`Extracted ${unique.length} possible holding(s). The parsed price is only a candidate average purchase price; current prices were left blank rather than guessed. Review every field and enter a verified current price before saving.`);
       }
     } catch (error) {
       setStatus(`Could not read this PDF (${error.message || "unsupported format"}). Use manual entry instead.`);
@@ -123,15 +136,15 @@ export default function PortfolioSetup({ onImported }) {
         <label className="block text-sm font-medium">Portfolio PDF</label>
         <input type="file" accept="application/pdf,.pdf" onChange={(e) => void handlePdf(e.target.files?.[0])} className="mt-2 block w-full rounded-xl border border-line bg-white p-3 text-sm" />
         {fileName && <p className="mt-2 text-xs text-slate">Selected: {fileName}</p>}
-        <p className="mt-2 text-xs text-slate">PDF text is extracted in your browser. Scanned/image-only PDFs are not OCR-processed. Review extracted rows before saving.</p>
+        <p className="mt-2 text-xs text-slate">PDF text is extracted in your browser (maximum 10 MB and 100 pages). Scanned/image-only PDFs are not OCR-processed. Parsed values are suggestions only; current prices are never inferred from purchase prices. Review extracted rows before saving.</p>
         <Button variant="ghost" onClick={() => setMode("manual")}>Enter manually instead</Button>
       </Panel>}
       {mode === "manual" && <Panel title="Portfolio holdings">
         <div className="mb-4 max-w-xs"><label className="block text-sm font-medium">Cash balance (₹)</label><input type="number" min="0" value={cash} onChange={(e) => setCash(e.target.value)} className="mt-1 w-full rounded-lg border border-line px-3 py-2" /></div>
         <div className="space-y-3">
           {rows.map((row, i) => <div key={i} className="grid gap-2 rounded-xl border border-line p-3 md:grid-cols-4">
-            <input aria-label="Holding name" placeholder="Company / asset name" value={row.name} onChange={(e) => updateRow(i, "name", e.target.value)} className="rounded-lg border border-line px-2 py-2 text-sm md:col-span-2" />
-            <input aria-label="Ticker" placeholder="Ticker (optional)" value={row.ticker} onChange={(e) => updateRow(i, "ticker", e.target.value)} className="rounded-lg border border-line px-2 py-2 text-sm" />
+            <StockSearchField name={row.name} ticker={row.ticker} onChange={(item) => setRows((current) => current.map((existing, index) => index === i ? { ...existing, ...item } : existing))} />
+            <input aria-label="Ticker" placeholder="Ticker (manual override)" value={row.ticker} onChange={(e) => updateRow(i, "ticker", e.target.value)} className="rounded-lg border border-line px-2 py-2 text-sm" />
             <select aria-label="Sector" value={row.sector} onChange={(e) => updateRow(i, "sector", e.target.value)} className="rounded-lg border border-line px-2 py-2 text-sm">{SECTORS.map((s) => <option key={s} value={s}>{s}</option>)}</select>
             <input aria-label="Quantity" type="number" min="0" placeholder="Quantity" value={row.quantity} onChange={(e) => updateRow(i, "quantity", e.target.value)} className="rounded-lg border border-line px-2 py-2 text-sm" />
             <input aria-label="Average purchase price" type="number" min="0.01" step="any" placeholder="Avg buy price ₹" value={row.avg_buy_price} onChange={(e) => updateRow(i, "avg_buy_price", e.target.value)} className="rounded-lg border border-line px-2 py-2 text-sm" />
@@ -150,3 +163,4 @@ export default function PortfolioSetup({ onImported }) {
     </div>
   );
 }
+

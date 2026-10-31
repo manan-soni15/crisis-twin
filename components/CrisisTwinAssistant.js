@@ -10,6 +10,51 @@ function cleanSpokenText(value = "") {
   return String(value).replace(/[*_`#>|]/g, " ").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\s+/g, " ").trim();
 }
 
+const SMALL_NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+const TENS_NUMBER_WORDS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+function numberUnderThousandToWords(number) {
+  const n = Math.floor(number);
+  if (n < 20) return SMALL_NUMBER_WORDS[n];
+  if (n < 100) return `${TENS_NUMBER_WORDS[Math.floor(n / 10)]}${n % 10 ? `-${SMALL_NUMBER_WORDS[n % 10]}` : ""}`;
+  return `${SMALL_NUMBER_WORDS[Math.floor(n / 100)]} hundred${n % 100 ? ` ${numberUnderThousandToWords(n % 100)}` : ""}`;
+}
+function indianNumberToWords(value) {
+  const n = Math.floor(Math.abs(Number(value)));
+  if (!Number.isFinite(n)) return String(value);
+  if (n < 1000) return numberUnderThousandToWords(n);
+  const units = [[10000000, "crore"], [100000, "lakh"], [1000, "thousand"], [1, ""]];
+  let remainder = n;
+  const parts = [];
+  for (const [size, label] of units) {
+    if (remainder >= size) {
+      const amount = Math.floor(remainder / size);
+      remainder %= size;
+      if (size === 1) parts.push(numberUnderThousandToWords(amount));
+      else parts.push(`${numberUnderThousandToWords(amount)} ${label}`);
+    }
+  }
+  return parts.join(" ");
+}
+function formatCurrencyForSpeech(text) {
+  return String(text).replace(/₹\s*(-?\d[\d,]*(?:\.\d+)?)/g, (_match, raw) => {
+    const numeric = Number(String(raw).replace(/,/g, ""));
+    if (!Number.isFinite(numeric)) return _match;
+    const absolute = Math.abs(numeric);
+    const whole = Math.floor(absolute);
+    const fraction = Math.round((absolute - whole) * 100);
+    const amountWords = indianNumberToWords(whole);
+    const sign = numeric < 0 ? "minus " : "";
+    return `${sign}${amountWords} rupees${fraction ? ` and ${numberUnderThousandToWords(fraction)} paise` : ""}`;
+  });
+}
+
+function userFriendlyAssistantError(status) {
+  if (status === 503 || status === 502 || status === 504) {
+    return "I can't complete the advanced analysis right now. You can still ask questions about your saved portfolio, or try again later.";
+  }
+  return "I couldn't complete that request. Please try again in a moment.";
+}
+
 function findNavigationCommand(text) {
   const q = text.toLowerCase().replace(/\b(crisis twin|hey crisis twin|please|could you|can you|open|show me|take me to|navigate to|go to|switch to|bring up|display)\b/g, " ").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
   const aliases = [
@@ -65,7 +110,7 @@ export default function CrisisTwinAssistant() {
   const speak = useCallback((text) => {
     if (!("speechSynthesis" in window)) return;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(cleanSpokenText(text));
+    const utterance = new SpeechSynthesisUtterance(formatCurrencyForSpeech(cleanSpokenText(text)));
     utterance.rate = 1.02;
     utterance.pitch = 1;
     window.speechSynthesis.speak(utterance);
@@ -149,17 +194,21 @@ export default function CrisisTwinAssistant() {
       });
       const payload = await response.json().catch(() => ({}));
       if (requestEpoch !== conversationEpochRef.current) return;
-      if (!response.ok) throw new Error(payload.error || payload.message || `Request failed (${response.status}).`);
+      if (!response.ok) {
+        const error = new Error(userFriendlyAssistantError(response.status));
+        error.userFacingMessage = userFriendlyAssistantError(response.status);
+        throw error;
+      }
       const answer = payload.text || payload.message || "I couldn't find a reliable answer from the available portfolio tools.";
       addMessage("assistant", answer, { source: payload.source || "assistant", tool_calls: payload.tool_calls || [], result: payload.result || payload.simulation || null, saveable: shouldOfferSave(text, answer, payload), originalQuestion: text, savedRun: false });
       speak(answer);
       setStatus(payload.source === "local" ? "Answered from local portfolio data." : "Answered using portfolio tools.");
     } catch (error) {
       if (requestEpoch !== conversationEpochRef.current) return;
-      const message = error?.message || "I couldn't complete that request.";
+      const message = error?.userFacingMessage || "I couldn't complete that request. Please try again in a moment.";
       addMessage("assistant", message);
       speak(message);
-      setStatus("Command failed. Check the API status and try again.");
+      setStatus("The request couldn't be completed. Your saved portfolio data is unchanged.");
     } finally { setBusy(false); }
   }, [addMessage, router, speak]);
 

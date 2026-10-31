@@ -20,6 +20,7 @@ const stress = (h) => Math.round((holdingImpact("oil", h) + holdingImpact("rates
 
 export default function HoldingsExperience() {
   const [portfolio, setPortfolio] = useState(null);
+  const [persistenceUnavailable, setPersistenceUnavailable] = useState(false);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [side, setSide] = useState("Buy");
@@ -40,7 +41,11 @@ export default function HoldingsExperience() {
         getPortfolio(),
         getPaperOrders(),
       ]);
-      if (portData) {
+      if (portData?.api_unavailable) {
+        setPersistenceUnavailable(true);
+        setPortfolio(null);
+      } else if (portData) {
+        setPersistenceUnavailable(false);
         setPortfolio(portData);
         if (portData.holdings?.length > 0 && !selectedHoldingId) {
           setSelectedHoldingId(portData.holdings[0].id);
@@ -61,7 +66,8 @@ export default function HoldingsExperience() {
     Promise.all([getPortfolio(), getPaperOrders()])
       .then(([portData, ordersData]) => {
         if (!ignore) {
-          if (portData) setPortfolio(portData);
+          if (portData?.api_unavailable) { setPersistenceUnavailable(true); setPortfolio(null); }
+          else if (portData) { setPersistenceUnavailable(false); setPortfolio(portData); }
           if (Array.isArray(ordersData)) setOrders(ordersData);
           setLoading(false);
         }
@@ -84,6 +90,9 @@ export default function HoldingsExperience() {
 
   if (loading) {
     return <><PageHeader title="Holdings" description="Set up your portfolio to begin." /><Panel title="Loading portfolio">Loading your saved portfolio…</Panel></>;
+  }
+  if (persistenceUnavailable) {
+    return <><PageHeader title="Holdings" description="Saved portfolio status could not be verified." /><Panel title="Unable to load saved portfolio"><p className="text-sm text-slate">{portfolio?.error_message || "The server did not return your saved portfolio."} Your existing data has not been replaced. Check the server connection and retry.</p><div className="mt-4"><Button onClick={() => void reloadPortfolio()}>Retry loading</Button></div></Panel></>;
   }
   if (holdings.length === 0) {
     return <><PageHeader title="Holdings" description="Your portfolio is empty until you add or import your own holdings." /><PortfolioSetup onImported={reloadPortfolio} /></>;

@@ -42,7 +42,7 @@ export async function POST(request) {
   let text = null;
 
   if (/\b(highest|largest|biggest|top)\b.*\b(holding|holdings|position|positions|stock|stocks|investment|investments)\b|\bwhat (?:is|are) my (?:highest|largest|biggest) holdings\b/.test(message)) {
-    text = !ranked.length ? 'There are no holdings in the saved portfolio yet.' : `Your highest-value holdings by stored market value are: ${ranked.slice(0, 5).map(moneyFor).join('; ')}. Prices are saved manual/imported values, not live quotes.`;
+    text = !ranked.length ? 'There are no holdings in the saved portfolio yet.' : `Your highest-value holdings are: ${ranked.slice(0, 5).map(moneyFor).join('; ')}.`;
   } else if (/\b(stocks?|holdings?)\b.*\b(profit|profits|gain|gains|green)\b|\b(in profit|profitable stocks?)\b/.test(message)) {
     const winners = holdings.filter((h) => h.pnl > 0);
     text = winners.length ? `Holdings currently in unrealized profit: ${winners.map((h) => `${h.name}${h.ticker ? ` (${h.ticker})` : ''}: ${money(h.pnl)} (${h.returnPct === null ? 'return unavailable' : pct(h.returnPct)})`).join('; ')}. Calculated from saved average cost and current price; quotes are not live.` : 'No saved holding currently shows an unrealized profit based on its stored average cost and current price.';

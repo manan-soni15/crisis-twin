@@ -40,8 +40,38 @@
   ],
   "paper_trades": [],
   "profiles": [],
-  "runs": [],
-  "agent_logs": [],
+  "runs": [
+    {
+      "id": "assistant-mvwhn0gg-ve0y7",
+      "scenario_name": "please tell me what are my highest holding",
+      "shocks_json": "{\"source\":\"voice_assistant\",\"question\":\"please tell me what are my highest holding\",\"answer\":\"Your highest-value holdings are: Reliance (RELIANCE): market value ₹2,45,000; TCS (TCS): market value ₹1,80,000.\",\"tool_calls\":[]}",
+      "horizon_days": null,
+      "expected_move_pct": null,
+      "p05": null,
+      "p95": null,
+      "cvar95": null,
+      "survival_score": null,
+      "confidence": "unrated",
+      "in_fitted_range": 0,
+      "model_version": "assistant-local",
+      "per_holding_json": "[]",
+      "risk_contribution_json": "[]",
+      "created_at": "2026-10-31T14:20:07.312Z",
+      "saved_by_user": true,
+      "record_type": "assistant_analysis",
+      "original_question": "please tell me what are my highest holding",
+      "assistant_answer": "Your highest-value holdings are: Reliance (RELIANCE): market value ₹2,45,000; TCS (TCS): market value ₹1,80,000."
+    }
+  ],
+  "agent_logs": [
+    {
+      "run_id": "assistant-mvwhn0gg-ve0y7",
+      "agent": "Crisis Twin AI",
+      "response": "Your highest-value holdings are: Reliance (RELIANCE): market value ₹2,45,000; TCS (TCS): market value ₹1,80,000.",
+      "confidence": "unrated",
+      "created_at": "2026-10-31T14:20:07.312Z"
+    }
+  ],
   "drill_results": [],
   "assistant_logs": [
     {
@@ -131,6 +161,182 @@
       "source": null,
       "page": "/holdings",
       "saved_at": "2026-10-31T13:03:17.185Z"
+    },
+    {
+      "id": "1793454761839-ixbzm",
+      "role": "user",
+      "text": "what are my highest Holdings",
+      "at": "2026-10-31T13:52:41.839Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/propagation",
+      "saved_at": "2026-10-31T13:52:42.049Z"
+    },
+    {
+      "id": "1793454761841-ioqz8",
+      "role": "assistant",
+      "text": "Opening Holdings. What you own and how to paper trade it.",
+      "at": "2026-10-31T13:52:41.841Z",
+      "action": "navigate",
+      "href": "/holdings",
+      "source": null,
+      "page": "/propagation",
+      "saved_at": "2026-10-31T13:52:42.111Z"
+    },
+    {
+      "id": "1793455060657-iggre",
+      "role": "user",
+      "text": "open Voice for room",
+      "at": "2026-10-31T13:57:40.657Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T13:57:40.721Z"
+    },
+    {
+      "id": "1793455061747-lkg6q",
+      "role": "assistant",
+      "text": "Groq returned HTTP 401: Invalid API Key",
+      "at": "2026-10-31T13:57:41.748Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T13:57:41.785Z"
+    },
+    {
+      "id": "1793455079380-blizu",
+      "role": "user",
+      "text": "open crisis drill",
+      "at": "2026-10-31T13:57:59.380Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T13:57:59.535Z"
+    },
+    {
+      "id": "1793455079382-lfj93",
+      "role": "assistant",
+      "text": "Opening Crisis drill. Decide under a ticking clock.",
+      "at": "2026-10-31T13:57:59.382Z",
+      "action": "navigate",
+      "href": "/drill",
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T13:57:59.535Z"
+    },
+    {
+      "id": "1793455126565-tlc92",
+      "role": "user",
+      "text": "open report card",
+      "at": "2026-10-31T13:58:46.565Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T13:58:46.688Z"
+    },
+    {
+      "id": "1793455126566-oij91",
+      "role": "assistant",
+      "text": "Opening Report card. A one-page result you can share.",
+      "at": "2026-10-31T13:58:46.566Z",
+      "action": "navigate",
+      "href": "/report",
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T13:58:46.688Z"
+    },
+    {
+      "id": "1793455749696-s10ue",
+      "role": "user",
+      "text": "what are my highest Holdings",
+      "at": "2026-10-31T14:09:09.696Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/dashboard",
+      "saved_at": "2026-10-31T14:09:09.766Z"
+    },
+    {
+      "id": "1793455749749-93gxd",
+      "role": "assistant",
+      "text": "Your highest-value holdings by stored market value are: Reliance (RELIANCE): market value ₹2,45,000; TCS (TCS): market value ₹1,80,000. Prices are saved manual/imported values, not live quotes.",
+      "at": "2026-10-31T14:09:09.749Z",
+      "action": null,
+      "href": null,
+      "source": "local",
+      "page": "/dashboard",
+      "saved_at": "2026-10-31T14:09:09.865Z"
+    },
+    {
+      "id": "1793456391272-u9ojy",
+      "role": "user",
+      "text": "please tell me what are my highest holding",
+      "at": "2026-10-31T14:19:51.272Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/dashboard",
+      "saved_at": "2026-10-31T14:19:51.350Z"
+    },
+    {
+      "id": "1793456391338-7ph8f",
+      "role": "assistant",
+      "text": "Your highest-value holdings are: Reliance (RELIANCE): market value ₹2,45,000; TCS (TCS): market value ₹1,80,000.",
+      "at": "2026-10-31T14:19:51.338Z",
+      "action": null,
+      "href": null,
+      "source": "local",
+      "page": "/dashboard",
+      "saved_at": "2026-10-31T14:19:51.452Z"
+    },
+    {
+      "id": "1793456593730-970jy",
+      "role": "user",
+      "text": "Rana crisis drill against my portfolio",
+      "at": "2026-10-31T14:23:13.730Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/report",
+      "saved_at": "2026-10-31T14:23:13.782Z"
+    },
+    {
+      "id": "1793456595854-d1upb",
+      "role": "assistant",
+      "text": "I can't complete the advanced analysis right now. You can still ask questions about your saved portfolio, or try again later.",
+      "at": "2026-10-31T14:23:15.854Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/report",
+      "saved_at": "2026-10-31T14:23:15.884Z"
+    },
+    {
+      "id": "1793456620753-litzu",
+      "role": "user",
+      "text": "what happens if oil increases by 25%",
+      "at": "2026-10-31T14:23:40.753Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/report",
+      "saved_at": "2026-10-31T14:23:40.812Z"
+    },
+    {
+      "id": "1793456622123-khjsh",
+      "role": "assistant",
+      "text": "I can't complete the advanced analysis right now. You can still ask questions about your saved portfolio, or try again later.",
+      "at": "2026-10-31T14:23:42.123Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/report",
+      "saved_at": "2026-10-31T14:23:42.146Z"
     }
   ]
 }

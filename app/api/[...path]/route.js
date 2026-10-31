@@ -19,11 +19,12 @@ function portfolio(db) {
   const holdings = db.holdings
     .filter((h) => h.portfolio_id === 'default')
     .map((h) => {
-      const price = num(h.current_price);
-      const avgBuyPrice = num(h.avg_buy_price);
-      const val = num(h.quantity) * price;
-      const investedValue = num(h.quantity) * avgBuyPrice;
-      const unrealizedPnl = val - investedValue;
+      const hasCurrentPrice = Number.isFinite(Number(h.current_price)) && h.current_price !== null && h.current_price !== '' && Number(h.current_price) > 0;
+      const price = hasCurrentPrice ? num(h.current_price) : null;
+      const avgBuyPrice = Number.isFinite(Number(h.avg_buy_price)) && Number(h.avg_buy_price) > 0 ? num(h.avg_buy_price) : null;
+      const val = price === null ? null : num(h.quantity) * price;
+      const investedValue = avgBuyPrice === null ? null : num(h.quantity) * avgBuyPrice;
+      const unrealizedPnl = val === null || investedValue === null ? null : val - investedValue;
       const reserved = db.paper_trades
         .filter((x) => x.status === 'PENDING' && x.side === 'sell' && x.holding_id === h.id)
         .reduce((s, x) => s + num(x.quantity), 0);
@@ -39,23 +40,32 @@ function portfolio(db) {
         reserved_quantity: reserved,
         available_quantity: Math.max(0, h.quantity - reserved),
         current_price: price,
+        current_price_available: price !== null,
         avg_buy_price: avgBuyPrice,
-        invested_value: Math.round(investedValue * 100) / 100,
-        unrealized_pnl: Math.round(unrealizedPnl * 100) / 100,
-        return_pct: investedValue > 0 ? Math.round((unrealizedPnl / investedValue) * 10000) / 100 : null,
-        value: Math.round(val * 100) / 100,
+        invested_value: investedValue === null ? null : Math.round(investedValue * 100) / 100,
+        unrealized_pnl: unrealizedPnl === null ? null : Math.round(unrealizedPnl * 100) / 100,
+        return_pct: unrealizedPnl === null || investedValue === null || investedValue <= 0 ? null : Math.round((unrealizedPnl / investedValue) * 10000) / 100,
+        value: val === null ? null : Math.round(val * 100) / 100,
       };
     });
-  const equity = holdings.reduce((s, h) => s + h.value, 0);
+  const equity = holdings.reduce((s, h) => s + (h.value ?? 0), 0);
+  const investedKnown = holdings.every((h) => h.invested_value !== null);
+  const invested = holdings.reduce((s, h) => s + (h.invested_value ?? 0), 0);
+  const unrealizedPnl = holdings.every((h) => h.current_price_available && h.invested_value !== null) ? equity - invested : null;
   const total = equity + cash;
-  holdings.forEach((h) => (h.weight = total > 0 ? Math.round((h.value / total) * 10000) / 100 : 0));
+  holdings.forEach((h) => (h.weight = total > 0 && h.value !== null ? Math.round((h.value / total) * 10000) / 100 : 0));
   return {
     portfolio_id: 'default',
     portfolio_value: Math.round(total * 100) / 100,
+    invested_amount: investedKnown ? Math.round(invested * 100) / 100 : null,
+    unrealized_pnl: unrealizedPnl === null ? null : Math.round(unrealizedPnl * 100) / 100,
+    return_pct: unrealizedPnl === null || !investedKnown || invested <= 0 ? null : Math.round(unrealizedPnl / invested * 10000) / 100,
     cash_balance: cash,
     reserved_cash: reservedCash,
     available_cash: Math.max(0, cash - reservedCash),
     total_equity_value: Math.round(equity * 100) / 100,
+    valuation_complete: holdings.every((h) => h.current_price_available),
+    valuation_note: holdings.every((h) => h.current_price_available) ? 'All holdings have stored current prices; values are not live quotes.' : 'One or more holdings lack a current price. Portfolio totals exclude unpriced holdings and are incomplete.',
     holdings,
     pending_orders_count: trades.filter((x) => x.status === 'PENDING').length,
     last_updated: now(),
@@ -325,6 +335,17 @@ async function handle(req, ctx) {
     }
 
     if (p === '/simulate' && method === 'POST') {
+      const idempotencyKey = String(body.idempotency_key || '').trim().slice(0, 120);
+      if (idempotencyKey) {
+        const existing = db.runs.find((saved) => saved.idempotency_key === idempotencyKey);
+        if (existing) {
+          let existingShocks = {}; let existingPerHolding = []; let existingRisk = [];
+          try { existingShocks = JSON.parse(existing.shocks_json || '{}'); } catch {}
+          try { existingPerHolding = JSON.parse(existing.per_holding_json || '[]'); } catch {}
+          try { existingRisk = JSON.parse(existing.risk_contribution_json || '[]'); } catch {}
+          return json({ run_id: existing.id, scenario_name: existing.scenario_name, shocks: existingShocks.shocks || [], horizon_days: existing.horizon_days, expected_move_pct: existing.expected_move_pct, p05: existing.p05, p95: existing.p95, cvar95: existing.cvar95, survival_score: existing.survival_score, confidence: existing.confidence, per_holding: existingPerHolding, risk_contribution: existingRisk, created_at: existing.created_at, idempotent_replay: true });
+        }
+      }
       const pData = portfolio(db);
       if (!pData.holdings.length) return err('A portfolio with holdings is required.', 422);
       const shockObj = body.shock_object || body;
@@ -333,6 +354,7 @@ async function handle(req, ctx) {
 
       db.runs.unshift({
         id: run.run_id,
+        ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {}),
         scenario_name: run.scenario_name,
         shocks_json: JSON.stringify({ shocks: run.shocks, horizon_days: run.horizon_days }),
         horizon_days: run.horizon_days,
@@ -395,10 +417,18 @@ async function handle(req, ctx) {
           strategies: [],
         });
       }
-      return json({ comfort_threshold_pct: -8, breaking_point_pct: -15, reaction_style: 'holds then sells late', questions: [], strategies: [] });
+      return json({ comfort_threshold_pct: null, breaking_point_pct: null, reaction_style: null, questions: [], strategies: [], profile_status: 'not_configured', note: 'No saved risk-profile answers are available. No default answers were inferred.' });
     }
 
     if (p === '/profile' && method === 'POST') {
+      const allowedAnswers = {
+        reaction: ['Hold and review', 'Trim some positions', 'Move mostly to cash'],
+        horizon: ['Within 1 year', 'In 1–5 years', 'In 5+ years'],
+        loss: ['Up to 5%', 'About 10–15%', 'More than 15%'],
+      };
+      if (!Array.isArray(body.answers) || !['reaction', 'horizon', 'loss'].every((key) => body.answers.some((item) => item?.key === key && allowedAnswers[key].includes(item?.answer)))) {
+        return err('Please provide valid answers to all three risk-profile questions.', 400);
+      }
       let row = db.profiles.find((x) => x.user_id === 'user_default');
       const vals = {
         user_id: 'user_default',
@@ -431,7 +461,7 @@ async function handle(req, ctx) {
 
     if (p.startsWith('/report/') && method === 'GET') {
       const id = decodeURIComponent(p.split('/')[2]);
-      const r = db.runs.find((x) => x.id === id) || db.runs[0];
+      const r = db.runs.find((x) => x.id === id);
       if (!r) return err('No simulation runs found.', 404);
       return json({
         run_id: r.id,
@@ -439,7 +469,8 @@ async function handle(req, ctx) {
         survival_score: r.survival_score,
         expected_move_pct: r.expected_move_pct,
         likely_range: [r.p05, r.p95],
-        after_fix_pct: Math.round(r.expected_move_pct * 0.82 * 10) / 10,
+        after_fix_pct: null,
+        after_fix_status: 'not_simulated',
         confidence: r.confidence,
         hidden_risk: 'Scenario estimates are heuristic and should be reviewed carefully.',
         fix_description: 'Review the largest negative contributors and concentration before changing the portfolio.',
@@ -473,4 +504,5 @@ export async function GET(req, ctx) {
 export async function POST(req, ctx) {
   return handle(req, ctx);
 }
+
 
