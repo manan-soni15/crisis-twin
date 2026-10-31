@@ -59,7 +59,7 @@ export async function POST(request) {
     text = `Your saved cash balance is ${money(cash)}, ${total ? (cash / total * 100).toFixed(1) : '0.0'}% of the portfolio. This is a local shared demo workspace, not a connected brokerage account.`;
   } else if (/\b(individual|specific|holding)\b.*\b(return|profit|loss|p\s*\/\s*l)\b|\b(return|profit|loss)\b.*\b(holding|stock|ticker)\b/.test(message)) {
     text = holdings.length ? holdings.map((h) => `${h.name}${h.ticker ? ` (${h.ticker})` : ''}: quantity ${h.quantity}, average cost ${h.avgPrice ? money(h.avgPrice) : 'not recorded'}, current price ${h.currentPrice ? money(h.currentPrice) : 'not recorded'}, P/L ${money(h.pnl)}${h.returnPct === null ? '' : ` (${pct(h.returnPct)})`}`).join('; ') + '. Prices are stored values, not live quotes.' : 'There are no saved holdings yet.';
-  } else if (/\b(list|show|name)\b.*\b(my )?(holdings|stocks|positions)\b/.test(message)) {
+  } else if (/\b(list|show|name|what are|what do i have|which|tell me)\b.*\b(my )?(holdings|stocks|positions)\b|\bwhat (?:stocks|holdings|positions) do i (?:own|have)\b/.test(message)) {
     text = ranked.length ? `Your saved holdings are: ${ranked.map(moneyFor).join('; ')}. Values use saved prices.` : 'There are no saved holdings yet.';
   } else if (/\b(sector exposure|exposure by sector|sector allocation|largest sector)\b/.test(message)) {
     const sectors = new Map();

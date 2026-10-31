@@ -6,7 +6,7 @@ import { Icon } from "@/components/Icons";
 
 const TONE = { High: "gain", Medium: "neutral", Low: "loss" };
 
-export default function AuditTable({ rows }) {
+export default function AuditTable({ rows, onDelete, deletingId }) {
   const [filter, setFilter] = useState("All");
   const [open, setOpen] = useState(rows[0]?.id);
   const shown = rows.filter((r) => filter === "All" || r.confidence === filter);
@@ -58,6 +58,14 @@ export default function AuditTable({ rows }) {
                       ))}
                     </ul>
                     <div className="mt-3 text-sm text-slate">Method: {r.model || "Not recorded"}</div>
+                    {onDelete && (
+                      <div className="mt-4 flex justify-end">
+                        <button type="button" disabled={deletingId === r.id} onClick={() => onDelete(r.id)}
+                          className="rounded-lg border border-ember/40 px-3 py-2 text-sm font-semibold text-ember-deep hover:bg-ember-soft disabled:opacity-50">
+                          {deletingId === r.id ? "Deleting…" : "Delete run"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

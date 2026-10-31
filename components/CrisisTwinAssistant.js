@@ -76,9 +76,12 @@ function findNavigationCommand(text) {
 }
 
 function isActionOrQuestion(text) {
-  return /\b(run|simulate|stress|what if|what happens|biggest risk|biggest holding|highest holding|largest holding|exposure|portfolio|inflation|recession|oil|interest rate|market falls|brief me|compare|explain|why|how much|how could|analy[sz]e|risk)\b/i.test(text);
+  const value = String(text || "").trim();
+  // Portfolio questions must be answered from data, not mistaken for navigation.
+  const portfolioQuestion = /\b(what|which|who|how|tell me|list|calculate|show me)\b/i.test(value)
+    && /\b(my|me|portfolio|holding|holdings|stock|stocks|position|positions|cash|invested|profit|loss|return|sector|allocation|value|worth|exposure)\b/i.test(value);
+  return portfolioQuestion || /\b(run|simulate|stress|what if|what happens|biggest risk|biggest holdings?|highest holdings?|largest holdings?|top holdings?|exposure|portfolio|inflation|recession|oil|interest rate|market falls|brief me|compare|explain|why|how much|how could|analy[sz]e|risk)\b/i.test(value);
 }
-
 export default function CrisisTwinAssistant() {
   const router = useRouter();
   const pathname = usePathname();
@@ -144,8 +147,9 @@ export default function CrisisTwinAssistant() {
     setStatus("Understanding your command…");
     try {
       const destination = findNavigationCommand(text);
-      const isNavigationOnly = destination && !isActionOrQuestion(text.replace(new RegExp(destination.label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), ""));
-      if (destination && (isNavigationOnly || /\b(open|show|navigate|go to|take me|switch to|bring up|display)\b/i.test(text))) {
+      const explicitNavigation = /\b(open|navigate to|go to|take me to|switch to|bring up|display)\b/i.test(text)
+        || /^\s*(holdings|overview|dashboard|home|simulator|propagation map|audit trail|report card|risk profile|why it moved)\s*$/i.test(text);
+      if (destination && explicitNavigation && !/\b(what|which|how much|how many|why|calculate|tell me)\b/i.test(text)) {
         router.push(destination.href);
         const answer = `Opening ${destination.label}. ${destination.blurb || ""}`;
         addMessage("assistant", answer, { action: "navigate", href: destination.href });
@@ -167,7 +171,7 @@ export default function CrisisTwinAssistant() {
         addMessage("assistant", "Stopped speaking.");
         return;
       }
-      if (!isActionOrQuestion(text) && destination) {
+      if (!isActionOrQuestion(text) && destination && /^\s*(holdings|overview|dashboard|home|portfolio|simulator|propagation map|debate room|war room|crisis drill|replay|report card|reports|audit trail|risk profile|why it moved)\s*$/i.test(text)) {
         router.push(destination.href);
         const answer = `Opening ${destination.label}.`;
         addMessage("assistant", answer, { action: "navigate", href: destination.href });

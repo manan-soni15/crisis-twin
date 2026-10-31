@@ -5,42 +5,65 @@
       "name": "My Portfolio",
       "user_id": "user_default",
       "cash_balance": 0,
-      "updated_at": "2026-10-31T09:21:10.589Z"
+      "updated_at": "2026-10-31T16:19:08.389Z"
     }
   ],
   "holdings": [
     {
-      "id": "holding-mvw6yke5-1o5i9",
+      "id": "holding-mvwlw2jp-6foxk",
       "portfolio_id": "default",
-      "ticker": "RELIANCE",
-      "name": "Reliance",
+      "ticker": "RELIANCE.NS",
+      "name": "RELIANCE INDUSTRIES LTD",
       "sector": "energy",
       "quantity": 100,
       "avg_buy_price": 2450,
-      "current_price": 2450,
+      "current_price": 2800,
+      "purchase_date": null,
       "beta": 1,
       "weight": 0,
       "day_change_pct": 0,
-      "updated_at": "2026-10-31T09:21:10.589Z"
+      "updated_at": "2026-10-31T16:19:08.389Z"
     },
     {
-      "id": "holding-mvw6yke5-iq901",
+      "id": "holding-mvwlw2jp-2o8d4",
       "portfolio_id": "default",
-      "ticker": "TCS",
-      "name": "TCS",
+      "ticker": "TCS.NS",
+      "name": "TATA CONSULTANCY SERV LT",
       "sector": "it",
       "quantity": 50,
-      "avg_buy_price": 3600,
-      "current_price": 3600,
+      "avg_buy_price": 1200,
+      "current_price": 1400,
+      "purchase_date": null,
       "beta": 1,
       "weight": 0,
       "day_change_pct": 0,
-      "updated_at": "2026-10-31T09:21:10.589Z"
+      "updated_at": "2026-10-31T16:19:08.389Z"
     }
   ],
   "paper_trades": [],
   "profiles": [],
   "runs": [
+    {
+      "id": "voice-simulation-mvwju1fw-fkmd1",
+      "scenario_name": "oil_price stress test",
+      "shocks_json": "{\"source\":\"voice_assistant\",\"factor\":\"oil_price\",\"shock\":\"20%\",\"horizon_days\":30,\"assumption\":\"Uses the app sector-sensitivity heuristic. The coefficients are illustrative assumptions, not empirically calibrated estimates.\",\"methodology\":\"heuristic_scenario_not_forecast\",\"question\":\"Run or 20% oil shock against my portfolio\",\"answer\":\"Oil‑price shock (20 % rise, 30‑day horizon) - Portfolio moves up ~3.3 % – you’d see a gain of about ₹13.9 k on a ₹425 k book. - Why it rises – Reliance (energy) is the biggest driver. A higher oil price boosts its refining margin, so the model gives it a +6.9 % impact (~₹16.9 k). - Why it falls – TCS (IT) is hit by the shock, losing about 1.7 % (~₹3.1 k). - Net effect – the energy exposure outweighs the IT drag, so the portfolio benefits. Key assumptions & limits - Uses a simple sector‑sensitivity heuristic; coefficients are illustrative, not calibrated to real data. - Prices are demo values, not live market quotes. - The result is a low‑confidence, illustrative scenario, not a forecast or investment advice. - No other factors (FX, policy rates, broader equity moves) were included. If you want to see how other shocks (policy rate, geopolitical risk, broad equity) would play out, let me know.\",\"tool_calls\":[\"run_stress_test\"]}",
+      "horizon_days": 30,
+      "expected_move_pct": 3.26,
+      "p05": null,
+      "p95": null,
+      "cvar95": null,
+      "survival_score": null,
+      "confidence": "low",
+      "in_fitted_range": 0,
+      "model_version": "voice-stress-heuristic-v1",
+      "per_holding_json": "[{\"name\":\"Reliance\",\"ticker\":\"RELIANCE\",\"sector\":\"energy\",\"weight_pct\":57.65,\"impact_pct\":6.928,\"estimated_pnl_inr\":16974.1},{\"name\":\"TCS\",\"ticker\":\"TCS\",\"sector\":\"it\",\"weight_pct\":42.35,\"impact_pct\":-1.732,\"estimated_pnl_inr\":-3117.69}]",
+      "risk_contribution_json": "[]",
+      "created_at": "2026-10-31T15:21:34.412Z",
+      "saved_by_user": true,
+      "record_type": "simulation",
+      "original_question": "Run or 20% oil shock against my portfolio",
+      "assistant_answer": "Oil‑price shock (20 % rise, 30‑day horizon) - Portfolio moves up ~3.3 % – you’d see a gain of about ₹13.9 k on a ₹425 k book. - Why it rises – Reliance (energy) is the biggest driver. A higher oil price boosts its refining margin, so the model gives it a +6.9 % impact (~₹16.9 k). - Why it falls – TCS (IT) is hit by the shock, losing about 1.7 % (~₹3.1 k). - Net effect – the energy exposure outweighs the IT drag, so the portfolio benefits. Key assumptions & limits - Uses a simple sector‑sensitivity heuristic; coefficients are illustrative, not calibrated to real data. - Prices are demo values, not live market quotes. - The result is a low‑confidence, illustrative scenario, not a forecast or investment advice. - No other factors (FX, policy rates, broader equity moves) were included. If you want to see how other shocks (policy rate, geopolitical risk, broad equity) would play out, let me know."
+    },
     {
       "id": "assistant-mvwhn0gg-ve0y7",
       "scenario_name": "please tell me what are my highest holding",
@@ -70,6 +93,13 @@
       "response": "Your highest-value holdings are: Reliance (RELIANCE): market value ₹2,45,000; TCS (TCS): market value ₹1,80,000.",
       "confidence": "unrated",
       "created_at": "2026-10-31T14:20:07.312Z"
+    },
+    {
+      "run_id": "voice-simulation-mvwju1fw-fkmd1",
+      "agent": "Crisis Twin AI",
+      "response": "Oil‑price shock (20 % rise, 30‑day horizon) - Portfolio moves up ~3.3 % – you’d see a gain of about ₹13.9 k on a ₹425 k book. - Why it rises – Reliance (energy) is the biggest driver. A higher oil price boosts its refining margin, so the model gives it a +6.9 % impact (~₹16.9 k). - Why it falls – TCS (IT) is hit by the shock, losing about 1.7 % (~₹3.1 k). - Net effect – the energy exposure outweighs the IT drag, so the portfolio benefits. Key assumptions & limits - Uses a simple sector‑sensitivity heuristic; coefficients are illustrative, not calibrated to real data. - Prices are demo values, not live market quotes. - The result is a low‑confidence, illustrative scenario, not a forecast or investment advice. - No other factors (FX, policy rates, broader equity moves) were included. If you want to see how other shocks (policy rate, geopolitical risk, broad equity) would play out, let me know.",
+      "confidence": "low",
+      "created_at": "2026-10-31T15:21:34.412Z"
     }
   ],
   "drill_results": [],
@@ -337,6 +367,204 @@
       "source": null,
       "page": "/report",
       "saved_at": "2026-10-31T14:23:42.146Z"
+    },
+    {
+      "id": "1793458923928-74gmm",
+      "role": "user",
+      "text": "what are my highest Holdings",
+      "at": "2026-10-31T15:02:03.929Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/dashboard",
+      "saved_at": "2026-10-31T15:02:04.207Z"
+    },
+    {
+      "id": "1793458923930-72dmb",
+      "role": "assistant",
+      "text": "Opening Holdings. What you own and how to paper trade it.",
+      "at": "2026-10-31T15:02:03.930Z",
+      "action": "navigate",
+      "href": "/holdings",
+      "source": null,
+      "page": "/dashboard",
+      "saved_at": "2026-10-31T15:02:04.261Z"
+    },
+    {
+      "id": "1793458987212-obnmm",
+      "role": "user",
+      "text": "what are my highest Holdings",
+      "at": "2026-10-31T15:03:07.212Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T15:03:07.255Z"
+    },
+    {
+      "id": "1793458987214-xjdba",
+      "role": "assistant",
+      "text": "Opening Holdings. What you own and how to paper trade it.",
+      "at": "2026-10-31T15:03:07.214Z",
+      "action": "navigate",
+      "href": "/holdings",
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T15:03:07.352Z"
+    },
+    {
+      "id": "1793459401822-kq4sd",
+      "role": "user",
+      "text": "what are my highest Holdings",
+      "at": "2026-10-31T15:10:01.822Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T15:10:01.863Z"
+    },
+    {
+      "id": "1793459401972-16fpt",
+      "role": "assistant",
+      "text": "Your highest-value holdings are: Reliance (RELIANCE): market value ₹2,45,000; TCS (TCS): market value ₹1,80,000.",
+      "at": "2026-10-31T15:10:01.972Z",
+      "action": null,
+      "href": null,
+      "source": "local",
+      "page": "/holdings",
+      "saved_at": "2026-10-31T15:10:01.995Z"
+    },
+    {
+      "id": "1793459437021-17esw",
+      "role": "user",
+      "text": "runner 20% oil price shock against my portfolio",
+      "at": "2026-10-31T15:10:37.021Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T15:10:37.074Z"
+    },
+    {
+      "id": "1793459438130-x3srf",
+      "role": "assistant",
+      "text": "I can't complete the advanced analysis right now. You can still ask questions about your saved portfolio, or try again later.",
+      "at": "2026-10-31T15:10:38.130Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T15:10:38.154Z"
+    },
+    {
+      "id": "1793459975088-mp7fz",
+      "role": "user",
+      "text": "Run or 20% oil shock against my portfolio",
+      "at": "2026-10-31T15:19:35.088Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T15:19:35.167Z"
+    },
+    {
+      "id": "1793459977007-ki0eg",
+      "role": "assistant",
+      "text": "Oil‑price shock (20 % rise, 30‑day horizon) - Portfolio moves up ~3.3 % – you’d see a gain of about ₹13.9 k on a ₹425 k book. - Why it rises – Reliance (energy) is the biggest driver. A higher oil price boosts its refining margin, so the model gives it a +6.9 % impact (~₹16.9 k). - Why it falls – TCS (IT) is hit by the shock, losing about 1.7 % (~₹3.1 k). - Net effect – the energy exposure outweighs the IT drag, so the portfolio benefits. Key assumptions & limits - Uses a simple sector‑sensitivity heuristic; coefficients are illustrative, not calibrated to real data. - Prices are demo values, not live market quotes. - The result is a low‑confidence, illustrative scenario, not a forecast or investment advice. - No other factors (FX, policy rates, broader equity moves) were included. If you want to see how other shocks (policy rate, geopolitical risk, broad equity) would play out, let me know.",
+      "at": "2026-10-31T15:19:37.007Z",
+      "action": null,
+      "href": null,
+      "source": "groq",
+      "page": "/holdings",
+      "saved_at": "2026-10-31T15:19:37.022Z"
+    },
+    {
+      "id": "1793463590022-dp3ya",
+      "role": "user",
+      "text": "what is my highest Holdings",
+      "at": "2026-10-31T16:19:50.022Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/dashboard",
+      "saved_at": "2026-10-31T16:19:50.141Z"
+    },
+    {
+      "id": "1793463590023-2uz8x",
+      "role": "assistant",
+      "text": "Opening Holdings. What you own and how to paper trade it.",
+      "at": "2026-10-31T16:19:50.023Z",
+      "action": "navigate",
+      "href": "/holdings",
+      "source": null,
+      "page": "/dashboard",
+      "saved_at": "2026-10-31T16:19:50.141Z"
+    },
+    {
+      "id": "1793463620887-6q2co",
+      "role": "user",
+      "text": "Rana simulation against my portfolio f is a 25% increase in energy sector in ten days",
+      "at": "2026-10-31T16:20:20.888Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T16:20:20.928Z"
+    },
+    {
+      "id": "1793463623263-70q7y",
+      "role": "assistant",
+      "text": "Rana‑style 25 % energy‑sector lift over ten days - Your portfolio is 80 % energy (Reliance) and 20 % IT (TCS). - The stress test assumes every equity in the portfolio jumps +25 %. - Result: portfolio value rises from ₹350 k to about ₹437 k – a +25 % gain. - Biggest contributors: - Reliance: +₹70 k (80 % of the move). - TCS: +₹17.5 k (20 % of the move). - Key caveats - Low‑confidence, heuristic estimate – no market data, no correlation modeling. - Ignores taxes, fees, FX, and any derivative exposure. - Uses demo prices, not live quotes. - Bottom line: if the energy sector truly spikes 25 % in a week, your energy‑heavy portfolio would see a roughly 25 % upside, but the real outcome will depend on market dynamics, liquidity, and other factors.",
+      "at": "2026-10-31T16:20:23.263Z",
+      "action": null,
+      "href": null,
+      "source": "groq",
+      "page": "/holdings",
+      "saved_at": "2026-10-31T16:20:23.285Z"
+    },
+    {
+      "id": "1793463657576-uckrp",
+      "role": "user",
+      "text": "what are my highest Holdings",
+      "at": "2026-10-31T16:20:57.576Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T16:20:57.627Z"
+    },
+    {
+      "id": "1793463657577-k1402",
+      "role": "assistant",
+      "text": "Opening Holdings. What you own and how to paper trade it.",
+      "at": "2026-10-31T16:20:57.577Z",
+      "action": "navigate",
+      "href": "/holdings",
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T16:20:57.627Z"
+    },
+    {
+      "id": "1793464085170-yk7qj",
+      "role": "user",
+      "text": "what are my highest Holdings",
+      "at": "2026-10-31T16:28:05.170Z",
+      "action": null,
+      "href": null,
+      "source": null,
+      "page": "/holdings",
+      "saved_at": "2026-10-31T16:28:05.219Z"
+    },
+    {
+      "id": "1793464085263-ya5n7",
+      "role": "assistant",
+      "text": "Your highest-value holdings are: RELIANCE INDUSTRIES LTD (RELIANCE.NS): market value ₹2,80,000; TATA CONSULTANCY SERV LT (TCS.NS): market value ₹70,000.",
+      "at": "2026-10-31T16:28:05.263Z",
+      "action": null,
+      "href": null,
+      "source": "local",
+      "page": "/holdings",
+      "saved_at": "2026-10-31T16:28:05.295Z"
     }
   ]
 }

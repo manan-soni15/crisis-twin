@@ -41,9 +41,29 @@ export default function PortfolioSetup({ onImported }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cash_balance: Number(cash) || 0, holdings: valid }),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || data.message || "Portfolio could not be saved.");
-      setStatus(`Portfolio saved: ${data.holdings_count} holding(s) imported.`);
+      // Some server/runtime failures can return an empty or non-JSON body.
+      // Read as text first so the UI can show a useful message instead of
+      // surfacing the confusing "Unexpected end of JSON input" parser error.
+      const responseText = await response.text();
+      let data = {};
+      if (responseText.trim()) {
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          throw new Error(
+            response.ok
+              ? "The server returned an unreadable response while saving. Please retry; if it continues, check the server terminal."
+              : `Portfolio could not be saved (server error ${response.status}). Please check the server terminal for details.`
+          );
+        }
+      } else if (!response.ok) {
+        throw new Error(`Portfolio could not be saved (server error ${response.status}). Please check the server terminal for details.`);
+      } else {
+        throw new Error("The server returned an empty response while saving. Please retry; if it continues, check the server terminal.");
+      }
+      if (!response.ok) throw new Error(data.detail || data.message || data.error || `Portfolio could not be saved (server error ${response.status}).`);
+      if (data.success === false) throw new Error(data.detail || data.message || "Portfolio could not be saved.");
+      setStatus(`Portfolio saved: ${Number(data.holdings_count) || 0} holding(s) imported.`);
       onImported?.();
     } catch (error) {
       setStatus(error.message || "Could not save portfolio.");

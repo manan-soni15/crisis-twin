@@ -13,6 +13,26 @@ export default function ReportExperience() {
   const [selectedRun, setSelectedRun] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [actionError, setActionError] = useState("");
+
+  async function deleteRun(runId) {
+    if (typeof window !== "undefined" && !window.confirm("Delete this saved run from Report Card and Audit Trail? This cannot be undone.")) return;
+    setDeletingId(runId);
+    setActionError("");
+    try {
+      const response = await fetch(`/api/audit/runs/${encodeURIComponent(runId)}`, { method: "DELETE" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.message || data?.detail || "Could not delete this saved run.");
+      const remaining = runs.filter((run) => run.id !== runId);
+      setRuns(remaining);
+      if (selectedRun?.id === runId) setSelectedRun(remaining[0] || null);
+    } catch (error) {
+      setActionError(error.message || "Could not delete this saved run.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   // Load real simulation runs from database
   useEffect(() => {
@@ -71,7 +91,7 @@ export default function ReportExperience() {
       : "neutral";
 
   if (loading) return <><PageHeader title="Report card" description="Saved simulation and portfolio-analysis reports." /><Panel title="Saved runs">Loading saved reports…</Panel></>;
-  if (!runs.length || !selectedRun) return <><PageHeader title="Report card" description="Saved simulation and portfolio-analysis reports." actions={<Button icon="download" onClick={handlePrint}>Download PDF</Button>} /><Panel title="No saved reports yet"><p className="text-sm text-slate">Run a simulation or ask Crisis Twin AI for a portfolio analysis, then choose “Save to Audit Trail &amp; Report Card” on the answer. Only saved results appear here.</p></Panel><NextSteps href="/report" /></>;
+  if (!runs.length || !selectedRun) return <><PageHeader title="Report card" description="Saved simulation and portfolio-analysis reports." actions={<Button icon="download" onClick={handlePrint}>Download PDF</Button>} /><Panel title="No saved reports yet"><p className="text-sm text-slate">Run a simulation and save its completed result to see it here. Only saved runs appear in this report.</p></Panel><NextSteps href="/report" /></>;
 
   return (
     <>
@@ -89,6 +109,7 @@ export default function ReportExperience() {
           </>
         }
       />
+      {actionError && <p role="alert" className="mb-4 rounded-lg border border-ember/40 bg-ember-soft p-3 text-sm text-ember-deep">{actionError}</p>}
       <div className="grid gap-5 lg:grid-cols-12">
         {/* Saved Runs Rail */}
         <Panel className="lg:col-span-3" title="Saved runs">
@@ -109,6 +130,10 @@ export default function ReportExperience() {
                       {r.scenario_name}
                     </span>
                     <span className="num text-sm opacity-80 shrink-0">{r.survival_score}</span>
+                  </button>
+                  <button type="button" disabled={deletingId === r.id} onClick={() => deleteRun(r.id)}
+                    className="ml-3 mt-1 rounded-md px-2 py-1 text-xs font-semibold text-ember-deep hover:bg-ember-soft disabled:opacity-50">
+                    {deletingId === r.id ? "Deleting…" : "Delete"}
                   </button>
                 </li>
               );

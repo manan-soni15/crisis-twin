@@ -33,6 +33,65 @@ export default function HoldingsExperience() {
   const [cancellingOrderId, setCancellingOrderId] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showHoldingEditor, setShowHoldingEditor] = useState(false);
+  const [editingHoldingId, setEditingHoldingId] = useState(null);
+  const [holdingForm, setHoldingForm] = useState({ ticker: "", name: "", sector: "other", quantity: "1", avg_buy_price: "", current_price: "", purchase_date: "" });
+  const [holdingSaveBusy, setHoldingSaveBusy] = useState(false);
+  const [holdingSaveMessage, setHoldingSaveMessage] = useState(null);
+
+  function openHoldingEditor(holding = null) {
+    setEditingHoldingId(holding?.id || null);
+    setHoldingForm(holding ? {
+      ticker: holding.ticker || "", name: holding.name || "", sector: holding.sector || "other",
+      quantity: String(holding.quantity ?? "1"),
+      avg_buy_price: holding.avg_buy_price == null ? "" : String(holding.avg_buy_price),
+      current_price: holding.current_price == null ? "" : String(holding.current_price),
+      purchase_date: holding.purchase_date || "",
+    } : { ticker: "", name: "", sector: "other", quantity: "1", avg_buy_price: "", current_price: "", purchase_date: "" });
+    setHoldingSaveMessage(null);
+    setShowHoldingEditor(true);
+  }
+
+  async function saveHolding(e) {
+    e.preventDefault();
+    const quantityValue = Number(holdingForm.quantity);
+    const avgValue = Number(holdingForm.avg_buy_price);
+    const currentValue = Number(holdingForm.current_price);
+    if (!holdingForm.name.trim() || !Number.isFinite(quantityValue) || quantityValue <= 0 ||
+        !Number.isFinite(avgValue) || avgValue <= 0 || !Number.isFinite(currentValue) || currentValue <= 0) {
+      setHoldingSaveMessage({ type: "error", text: "Enter a company name, positive quantity, average purchase price, and current price." });
+      return;
+    }
+    setHoldingSaveBusy(true);
+    setHoldingSaveMessage(null);
+    try {
+      const response = await fetch(
+        editingHoldingId
+          ? `/api/portfolio/holdings/${encodeURIComponent(editingHoldingId)}`
+          : "/api/portfolio/holdings",
+        {
+          method: editingHoldingId ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...holdingForm,
+            quantity: quantityValue,
+            avg_buy_price: avgValue,
+            current_price: currentValue,
+          }),
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.success === false) throw new Error(data?.message || data?.detail || "Unable to save this holding.");
+      setShowHoldingEditor(false);
+      setHoldingSaveMessage({ type: "success", text: editingHoldingId ? "Holding updated." : "Holding added." });
+      await reloadPortfolio();
+    } catch (error) {
+      setHoldingSaveMessage({ type: "error", text: error.message || "Unable to save this holding." });
+    } finally {
+      setHoldingSaveBusy(false);
+    }
+  }
+
 
   async function reloadPortfolio() {
     setLoading(true);
@@ -289,10 +348,11 @@ export default function HoldingsExperience() {
         title="Holdings"
         description="What the portfolio owns, real-time stress reaction, and an interactive paper trading ticket."
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Tag tone={isLive ? "gain" : "neutral"}>
               {isLive ? "Live Market Data" : "Manual / Imported Prices"}
             </Tag>
+            <Button onClick={() => openHoldingEditor()}>Add holding</Button>
             <Button variant="ghost" onClick={handleRefreshPrices} disabled={loading}>
               {loading ? "Refreshing..." : "Refresh Prices"}
             </Button>
@@ -300,21 +360,58 @@ export default function HoldingsExperience() {
         }
       />
 
+      {holdingSaveMessage && (
+        <div role="status" className={`mb-4 rounded-lg border p-3 text-sm ${holdingSaveMessage.type === "error" ? "border-ember/40 bg-ember-soft text-ember-deep" : "border-mint/40 bg-mint-soft text-mint-deep"}`}>
+          {holdingSaveMessage.text}
+        </div>
+      )}
+      {showHoldingEditor && (
+        <Panel title={editingHoldingId ? "Edit holding" : "Add holding"} aside={<button type="button" className="text-sm text-slate hover:text-ink" onClick={() => setShowHoldingEditor(false)}>Close</button>}>
+          <form onSubmit={saveHolding} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              ["ticker", "Ticker symbol", "e.g. RELIANCE"],
+              ["name", "Company name", "e.g. Reliance Industries"],
+              ["sector", "Sector", "e.g. energy"],
+              ["quantity", "Quantity / shares", "e.g. 10"],
+              ["avg_buy_price", "Average purchase price (₹)", "e.g. 1250"],
+              ["current_price", "Current price per share (₹)", "e.g. 1380"],
+            ].map(([key, label, placeholder]) => (
+              <label key={key} className="block text-sm font-medium text-ink">
+                {label}
+                <input name={key} value={holdingForm[key] ?? ""} onChange={(event) => setHoldingForm((current) => ({ ...current, [key]: event.target.value }))} placeholder={placeholder}
+                  type={["quantity", "avg_buy_price", "current_price"].includes(key) ? "number" : "text"}
+                  min={["quantity", "avg_buy_price", "current_price"].includes(key) ? "0.01" : undefined}
+                  step={["quantity", "avg_buy_price", "current_price"].includes(key) ? "any" : undefined}
+                  required={["name", "quantity", "avg_buy_price", "current_price"].includes(key)}
+                  className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2.5 font-normal outline-none focus:border-ultra" />
+              </label>
+            ))}
+            <label className="block text-sm font-medium text-ink">Purchase date (optional)
+              <input type="date" value={holdingForm.purchase_date} onChange={(event) => setHoldingForm((current) => ({ ...current, purchase_date: event.target.value }))} className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2.5 font-normal" />
+            </label>
+            <div className="flex items-end gap-2">
+              <Button type="submit" disabled={holdingSaveBusy}>{holdingSaveBusy ? "Saving..." : editingHoldingId ? "Save changes" : "Add holding"}</Button>
+              <Button type="button" variant="ghost" onClick={() => setShowHoldingEditor(false)}>Cancel</Button>
+            </div>
+          </form>
+        </Panel>
+      )}
       <div className="grid gap-5 lg:grid-cols-12">
         <div className="space-y-5 lg:col-span-8">
           {/* Holdings Table */}
           <Panel bodyClass="!px-0 !pb-2 !pt-1">
             <div className="scroll-x">
-              <table className="w-full min-w-[680px] text-left text-[0.95rem]">
+              <table className="w-full min-w-[1180px] table-fixed text-left text-[0.95rem]">
                 <thead className="text-sm text-slate">
                   <tr className="border-b border-line">
-                    <th className="px-5 py-3 font-medium">Holding</th>
-                    <th className="py-3 font-medium">Weight</th>
-                    <th className="py-3 text-right font-medium">Shares</th>
-                    <th className="py-3 text-right font-medium">Price</th>
-                    <th className="py-3 text-right font-medium">Value</th>
-                    <th className="py-3 text-right font-medium">Today</th>
-                    <th className="w-[150px] px-5 py-3 font-medium">Under shock</th>
+                    <th className="w-[230px] px-5 py-3 font-medium">Holding</th>
+                    <th className="w-[145px] px-3 py-3 font-medium">Weight</th>
+                    <th className="w-[105px] px-3 py-3 text-right font-medium whitespace-nowrap">Shares</th>
+                    <th className="w-[125px] px-3 py-3 text-right font-medium whitespace-nowrap">Price</th>
+                    <th className="w-[155px] px-3 py-3 text-right font-medium whitespace-nowrap">Value</th>
+                    <th className="w-[100px] px-3 py-3 text-right font-medium whitespace-nowrap">Today</th>
+                    <th className="w-[170px] px-4 py-3 font-medium whitespace-nowrap">Under shock</th>
+                    <th className="w-[120px] px-4 py-3 text-right font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -322,19 +419,19 @@ export default function HoldingsExperience() {
                     const secObj = SECTORS.find((s) => s.id === h.sector);
                     return (
                       <tr key={h.id} className="border-b border-line/70 last:border-0 hover:bg-mist/30 transition-colors">
-                        <td className="px-5 py-3.5">
-                          <div className="font-semibold">{h.name}</div>
+                        <td className="px-5 py-4 align-middle">
+                          <div className="break-words font-semibold leading-6">{h.name}</div>
                           <div className="text-sm text-slate">{secObj ? secObj.label : h.sector}</div>
                         </td>
-                        <td className="py-3.5">
-                          <div className="flex items-center gap-2">
+                        <td className="px-3 py-4 align-middle">
+                          <div className="flex items-center gap-2 whitespace-nowrap">
                             <div className="h-1.5 w-16 overflow-hidden rounded-full bg-mist">
                               <div className="h-full rounded-full bg-ultra" style={{ width: `${Math.min(100, h.weight * 4)}%` }} />
                             </div>
                             <span className="num w-9 text-xs text-slate">{h.weight}%</span>
                           </div>
                         </td>
-                        <td className="num py-3.5 text-right font-mono text-xs">
+                        <td className="num whitespace-nowrap px-3 py-4 text-right font-mono text-sm align-middle">
                           <div>{h.quantity.toLocaleString("en-IN")}</div>
                           {h.reserved_quantity > 0 && (
                             <div className="text-[10px] text-slate font-sans">
@@ -342,13 +439,16 @@ export default function HoldingsExperience() {
                             </div>
                           )}
                         </td>
-                        <td className="num py-3.5 text-right font-medium">{inr(h.current_price || 0)}</td>
-                        <td className="num py-3.5 text-right font-semibold">{inr(h.value || (totalValue * h.weight) / 100)}</td>
-                        <td className={`num py-3.5 text-right font-semibold ${h.day < 0 ? "text-ember-deep" : "text-mint-deep"}`}>
+                        <td className="num whitespace-nowrap px-3 py-4 text-right font-medium align-middle">{inr(h.current_price || 0)}</td>
+                        <td className="num whitespace-nowrap px-3 py-4 text-right font-semibold align-middle">{inr(h.value || (totalValue * h.weight) / 100)}</td>
+                        <td className={`num whitespace-nowrap px-3 py-4 text-right font-semibold align-middle ${h.day < 0 ? "text-ember-deep" : "text-mint-deep"}`}>
                           {pct(h.day)}
                         </td>
-                        <td className="px-5 py-3.5">
-                          <DivergingBar value={stress(h)} max={12} />
+                        <td className="px-4 py-4 align-middle">
+                          <div className="min-w-[130px]"><DivergingBar value={stress(h)} max={12} /></div>
+                        </td>
+                        <td className="px-4 py-4 text-right align-middle">
+                          <Button variant="ghost" className="!px-3 !py-1.5 text-xs" onClick={() => openHoldingEditor(h)}>Edit</Button>
                         </td>
                       </tr>
                     );

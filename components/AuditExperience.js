@@ -9,6 +9,24 @@ import { Panel, Tag } from "@/components/ui";
 export default function AuditExperience() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
+  const [actionError, setActionError] = useState("");
+
+  async function deleteRun(runId) {
+    if (typeof window !== "undefined" && !window.confirm("Delete this saved run from Audit Trail and Report Card? This cannot be undone.")) return;
+    setDeletingId(runId);
+    setActionError("");
+    try {
+      const response = await fetch(`/api/audit/runs/${encodeURIComponent(runId)}`, { method: "DELETE" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.message || data?.detail || "Could not delete this saved run.");
+      setRows((current) => current.filter((row) => row.id !== runId));
+    } catch (error) {
+      setActionError(error.message || "Could not delete this saved run.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   useEffect(() => {
     fetch("/api/audit/runs")
@@ -38,12 +56,13 @@ export default function AuditExperience() {
       />
       <div className="grid gap-5 lg:grid-cols-12">
         <Panel className="lg:col-span-8" title="Runs" bodyClass="!px-0 !pb-0">
-          {loading ? <p className="px-5 py-6 text-sm text-slate">Loading saved runs…</p> : rows.length ? <AuditTable rows={rows} /> : <div className="px-5 py-8 text-sm text-slate"><p className="font-semibold text-ink">No saved runs yet</p><p className="mt-1">Run a simulation or ask Crisis Twin AI for a portfolio analysis, then choose “Save to Audit Trail &amp; Report Card”.</p></div>}
+          {actionError && <p role="alert" className="px-5 pt-4 text-sm text-ember-deep">{actionError}</p>}
+          {loading ? <p className="px-5 py-6 text-sm text-slate">Loading saved runs…</p> : rows.length ? <AuditTable rows={rows} onDelete={deleteRun} deletingId={deletingId} /> : <div className="px-5 py-8 text-sm text-slate"><p className="font-semibold text-ink">No saved runs yet</p><p className="mt-1">Run a simulation and save its completed result to see it here.</p></div>}
         </Panel>
         <div className="space-y-5 lg:col-span-4">
           <Panel title="Saved result details">
             <p className="text-[0.95rem] text-slate">
-              Saved assistant analyses include the original question, the response, and any structured simulation metrics that were returned. If a metric was not provided by the engine, it is left blank rather than estimated here.
+              Saved simulation runs include their inputs, calculation method, available reasoning and returned metrics. Delete a run here to remove it from both Audit Trail and Report Card.
             </p>
           </Panel>
           <Panel title="What the confidence levels mean" tone="flat">

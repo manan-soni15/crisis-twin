@@ -196,7 +196,8 @@ async function handle(req, ctx) {
     return json({ run_id: run.id, ...debatePayload });
   }
 
-  return mutateStore((db) => {
+  try {
+    return mutateStore((db) => {
     if (p === '/health' && method === 'GET') {
       return json({ status: 'healthy', service: 'Crisis Twin Next.js API', version: '1.0.0', environment: process.env.NODE_ENV || 'development' });
     }
@@ -495,7 +496,18 @@ async function handle(req, ctx) {
     }
 
     return err(`Route not found: ${method} ${p}`, 404);
-  });
+    });
+  } catch (error) {
+    // Always return JSON from API failures so clients can display a useful
+    // error instead of failing while parsing an empty/non-JSON response.
+    console.error(`[Crisis Twin API] ${method} ${p} failed:`, error);
+    return err(
+      process.env.NODE_ENV === 'production'
+        ? 'The request could not be completed. Please try again; if the problem persists, contact the workspace administrator.'
+        : `The request could not be completed: ${error?.message || 'Unknown server error'}`,
+      500
+    );
+  }
 }
 
 export async function GET(req, ctx) {
