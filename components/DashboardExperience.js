@@ -7,18 +7,11 @@ import NextSteps from "@/components/console/NextSteps";
 import { Panel, Readout, Tag, TextLink, Button } from "@/components/ui";
 import { DivergingBar } from "@/components/viz/Charts";
 import { SHOCKS, inr, pct } from "@/lib/sample";
+import PortfolioSetup from "@/components/PortfolioSetup";
 
 const SECTOR_COLORS = ["#1a2fd4", "#4a5de0", "#8c9bf0", "#0e1433", "#1fa98a", "#ff5a2c", "#cbd8ff"];
 
-const FALLBACK_HOLDINGS = [
-  { id: "reliance", name: "Reliance Industries", sector: "energy", weight: 15.6, day: 0.4, impact: 3.4 },
-  { id: "indigo", name: "InterGlobe Aviation", sector: "airlines", weight: 7.7, day: -1.6, impact: -12.4 },
-  { id: "hdfc", name: "HDFC Bank", sector: "banks", weight: 17.2, day: -0.5, impact: -5.2 },
-  { id: "tata", name: "Tata Motors", sector: "auto", weight: 10.4, day: -0.9, impact: -10.2 },
-  { id: "infy", name: "Infosys", sector: "it", weight: 14.8, day: 0.2, impact: -1.8 },
-  { id: "sun", name: "Sun Pharma", sector: "pharma", weight: 8.7, day: 0.7, impact: 0.1 },
-  { id: "itc", name: "ITC", sector: "fmcg", weight: 12.2, day: 0.1, impact: -2.0 },
-];
+const FALLBACK_HOLDINGS = [];
 
 const SECTORS_MAP = {
   energy: "Energy",
@@ -31,31 +24,20 @@ const SECTORS_MAP = {
 };
 
 export default function DashboardExperience() {
-  const [portfolioValue, setPortfolioValue] = useState(5559240);
-  const [holdings, setHoldings] = useState(FALLBACK_HOLDINGS);
-  const [latestRun, setLatestRun] = useState({
-    name: "Oil +25% and rates +100 bps",
-    range: "−6.4% to −0.9%",
-    expected_move: -3.5,
-    score: 93,
-    confidence: "Medium",
-    when: "Today",
-  });
-  const [recentRuns, setRecentRuns] = useState([
-    { name: "Oil +25% and rates +100 bps", range: "−6.4% to −0.9%", score: 93, when: "Today" },
-    { name: "Geopolitical conflict", range: "−7.9% to −2.6%", score: 66, when: "Yesterday" },
-    { name: "Auto-sector scandal", range: "−3.4% to −0.9%", score: 84, when: "3 days ago" },
-    { name: "Rates +150 bps", range: "−5.2% to −1.7%", score: 77, when: "Last week" },
-  ]);
+  const [portfolioValue, setPortfolioValue] = useState(0);
+  const [portfolioLoaded, setPortfolioLoaded] = useState(false);
+  const [holdings, setHoldings] = useState([]);
+  const [latestRun, setLatestRun] = useState(null);
+  const [recentRuns, setRecentRuns] = useState([]);
 
   useEffect(() => {
     // 1. Fetch live portfolio
     fetch("/api/portfolio")
       .then((r) => r.json())
       .then((data) => {
-        if (data && data.portfolio_value) {
-          setPortfolioValue(data.portfolio_value);
-          if (Array.isArray(data.holdings) && data.holdings.length > 0) {
+        if (data) {
+          setPortfolioValue(Number(data.portfolio_value || 0));
+          if (Array.isArray(data.holdings)) {
             const mapped = data.holdings.map((h) => ({
               id: h.id,
               name: h.name,
@@ -68,7 +50,8 @@ export default function DashboardExperience() {
           }
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setPortfolioLoaded(true));
 
     // 2. Fetch latest runs
     fetch("/api/audit/runs")
@@ -77,8 +60,8 @@ export default function DashboardExperience() {
         if (d && Array.isArray(d.runs) && d.runs.length > 0) {
           const mappedRuns = d.runs.map((r, i) => ({
             name: r.scenario || "Stress scenario",
-            range: `${pct(r.expected_move_pct * 1.6)} to ${pct(r.expected_move_pct * 0.45)}`,
-            score: r.survival_score || Math.max(50, Math.min(95, Math.round(100 + Number(r.expected_move_pct || -4) * 2))),
+            range: r.p05 == null || r.p95 == null ? "Not provided" : `${pct(Number(r.p05))} to ${pct(Number(r.p95))}`,
+            score: r.survival_score == null ? null : Number(r.survival_score),
             expected_move: Number(r.expected_move_pct || -3.5),
             confidence: r.confidence || "Medium",
             when: i === 0 ? "Today" : i === 1 ? "Yesterday" : `${i + 1} days ago`,
@@ -90,14 +73,21 @@ export default function DashboardExperience() {
       .catch(() => {});
   }, []);
 
+  if (!portfolioLoaded) {
+    return <><PageHeader title="Overview" description="Loading your portfolio workspace." /><Panel title="Loading">Loading your saved portfolio…</Panel></>;
+  }
+  if (holdings.length === 0) {
+    return <><PageHeader title="Welcome to Crisis Twin" description="Start by importing your own portfolio. No holdings or balances are preloaded." /><PortfolioSetup onImported={() => window.location.reload()} /></>;
+  }
+
   const dayMove = Math.round(holdings.reduce((s, h) => s + (h.weight / 100) * (h.day || 0), 0) * 10) / 10;
-  const lastLoss = latestRun.expected_move;
+  const lastLoss = latestRun?.expected_move;
 
   return (
     <>
       <PageHeader
         title="Overview"
-        description="Your sample portfolio at a glance, and how it held up in the last stress test."
+        description="Your imported portfolio at a glance, and how it responds to stress scenarios."
         actions={<Button href="/simulator" icon="arrow">Run a crisis</Button>}
       />
 
@@ -105,16 +95,16 @@ export default function DashboardExperience() {
         <div className="grid divide-y divide-line sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-5 lg:divide-x">
           <Readout className="p-5" label="Portfolio value" value={inr(portfolioValue)} note={`${holdings.length} holdings`} />
           <Readout className="p-5" label="Today" value={pct(dayMove)} tone={dayMove < 0 ? "loss" : "gain"} note="Before any scenario" />
-          <Readout className="p-5" label="Last crisis" value={pct(lastLoss)} tone="loss" note={latestRun.name.slice(0, 24)} />
-          <Readout className="p-5" label="Survival score" value={String(latestRun.score)} tone="ultra" note="Out of 100" />
-          <Readout className="p-5" label="Confidence" value={latestRun.confidence} note="Inside fitted range" />
+          <Readout className="p-5" label="Last crisis" value={lastLoss == null ? "—" : pct(lastLoss)} tone="loss" note={latestRun?.name ? latestRun.name.slice(0, 24) : "No saved simulation"} />
+          <Readout className="p-5" label="Survival score" value={latestRun?.score == null ? "—" : String(latestRun.score)} tone="ultra" note={latestRun ? "Out of 100" : "Run a simulation first"} />
+          <Readout className="p-5" label="Confidence" value={latestRun?.confidence || "—"} note={latestRun ? "Scenario estimate" : "No result yet"} />
         </div>
       </Panel>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-12">
         <Panel className="lg:col-span-7" title="Latest stress test" aside={<TextLink href="/simulator">Open</TextLink>}>
           <p className="max-w-[56ch] text-slate">
-            {latestRun.name}. These are the holdings that moved most.
+            {latestRun?.name || "No saved simulation yet"}. {holdings.length ? "These are the holdings that moved most." : "Add your portfolio in Holdings to see portfolio-specific risk analysis."}
           </p>
           <ul className="mt-5 space-y-3.5">
             {[...holdings]
@@ -165,14 +155,14 @@ export default function DashboardExperience() {
                 </tr>
               </thead>
               <tbody>
-                {recentRuns.map((r, idx) => (
-                  <tr key={idx} className="border-b border-line/70 last:border-0">
+                {recentRuns.length ? recentRuns.map((r) => (
+                  <tr key={r.name + r.when} className="border-b border-line/70 last:border-0">
                     <td className="px-5 py-3 font-medium truncate max-w-[200px]">{r.name}</td>
                     <td className="num py-3 text-ember-deep">{r.range}</td>
-                    <td className="num py-3">{r.score}</td>
+                    <td className="num py-3">{r.score == null ? "N/A" : r.score}</td>
                     <td className="px-5 py-3 text-right text-slate">{r.when}</td>
                   </tr>
-                ))}
+                )) : <tr><td colSpan={4} className="px-5 py-6 text-sm text-slate">No saved simulations yet.</td></tr>}
               </tbody>
             </table>
           </div>

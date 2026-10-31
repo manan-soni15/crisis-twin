@@ -57,7 +57,7 @@ export default function AuditTable({ rows }) {
                         <li key={`${l.agent || "agent"}-${index}`} className="flex gap-3"><span className="w-28 shrink-0 font-semibold">{l.agent}</span><span className="text-slate">{l.text}</span></li>
                       ))}
                     </ul>
-                    <div className="mt-3 text-sm text-slate">Model version {r.model}</div>
+                    <div className="mt-3 text-sm text-slate">Method: {r.model || "Not recorded"}</div>
                   </div>
                 </div>
               )}

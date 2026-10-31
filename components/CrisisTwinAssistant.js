@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "@/components/Icons";
 import { FLAT } from "@/lib/nav";
 
-const HISTORY_KEY = "crisis-twin-jarvis-history-v1";
 
 function cleanSpokenText(value = "") {
   return String(value).replace(/[*_`#>|]/g, " ").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\s+/g, " ").trim();
@@ -40,6 +39,7 @@ export default function CrisisTwinAssistant() {
   const pathname = usePathname();
   const recognitionRef = useRef(null);
   const historyRef = useRef([]);
+  const conversationEpochRef = useRef(0);
   const [isOpen, setIsOpen] = useState(false);
   const [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -51,19 +51,12 @@ export default function CrisisTwinAssistant() {
   useEffect(() => {
     const supported = Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
     setVoiceSupported(supported);
-    try {
-      const saved = JSON.parse(window.localStorage.getItem(HISTORY_KEY) || "[]");
-      if (Array.isArray(saved) && saved.length) {
-        historyRef.current = saved.slice(-12);
-        setMessages([{ id: "welcome", role: "assistant", text: "I'm Crisis Twin. Your recent assistant history is restored." }, ...saved.slice(-8)]);
-      }
-    } catch { /* Ignore invalid local history. */ }
+    historyRef.current = [];
     return () => { try { recognitionRef.current?.stop(); } catch {} };
   }, []);
 
   const persist = useCallback(async (items) => {
     historyRef.current = items.slice(-12);
-    try { window.localStorage.setItem(HISTORY_KEY, JSON.stringify(historyRef.current)); } catch {}
     try {
       await fetch("/api/assistant/activity", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: items.slice(-2), page: pathname }) });
     } catch { /* Local history remains available if persistence fails. */ }
@@ -100,6 +93,7 @@ export default function CrisisTwinAssistant() {
   const processCommand = useCallback(async (raw) => {
     const text = String(raw || "").trim().replace(/^(hey\s+)?crisis twin[,:\s-]*/i, "").trim();
     if (!text) return;
+    const requestEpoch = conversationEpochRef.current;
     addMessage("user", raw.trim());
     setBusy(true);
     setStatus("Understanding your command…");
@@ -139,25 +133,29 @@ export default function CrisisTwinAssistant() {
       const localResponse = await fetch("/api/assistant/insight", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text }),
       });
+      if (requestEpoch !== conversationEpochRef.current) return;
       const localPayload = await localResponse.json().catch(() => ({}));
+      if (requestEpoch !== conversationEpochRef.current) return;
       if (localResponse.ok && localPayload.handled) {
         addMessage("assistant", localPayload.text, { source: "local", saveable: shouldOfferSave(text, localPayload.text), originalQuestion: text });
         speak(localPayload.text);
-        setStatus("Answered from saved portfolio data. Groq was not called.");
+        setStatus("Answered from saved portfolio data.");
         return;
       }
-      setStatus("Checking portfolio tools with Groq…");
+      setStatus("Checking portfolio tools…");
       const response = await fetch("/api/intelligence/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text, history: historyRef.current.slice(-8).map((m) => ({ role: m.role, text: m.text })) }),
       });
       const payload = await response.json().catch(() => ({}));
+      if (requestEpoch !== conversationEpochRef.current) return;
       if (!response.ok) throw new Error(payload.error || payload.message || `Request failed (${response.status}).`);
       const answer = payload.text || payload.message || "I couldn't find a reliable answer from the available portfolio tools.";
-      addMessage("assistant", answer, { source: payload.source || "groq", tool_calls: payload.tool_calls || [], result: payload.result || payload.simulation || null, saveable: shouldOfferSave(text, answer, payload), originalQuestion: text, savedRun: false });
+      addMessage("assistant", answer, { source: payload.source || "assistant", tool_calls: payload.tool_calls || [], result: payload.result || payload.simulation || null, saveable: shouldOfferSave(text, answer, payload), originalQuestion: text, savedRun: false });
       speak(answer);
-      setStatus(payload.source === "local" ? "Answered without using Groq." : "Answered using portfolio tools and Groq.");
+      setStatus(payload.source === "local" ? "Answered from local portfolio data." : "Answered using portfolio tools.");
     } catch (error) {
+      if (requestEpoch !== conversationEpochRef.current) return;
       const message = error?.message || "I couldn't complete that request.";
       addMessage("assistant", message);
       speak(message);
@@ -189,6 +187,18 @@ export default function CrisisTwinAssistant() {
       setMessages((previous) => previous.map((item) => item.id === message.id ? { ...item, saving: false, saveError: error.message || "Save failed." } : item));
       setStatus("Could not save this result. Check the server terminal and try again.");
     }
+  }, []);
+
+  const clearConversation = useCallback(() => {
+    conversationEpochRef.current += 1;
+    try { recognitionRef.current?.stop(); } catch {}
+    try { window.speechSynthesis?.cancel(); } catch {}
+    historyRef.current = [];
+    setListening(false);
+    setBusy(false);
+    setInput("");
+    setMessages([{ id: "welcome", role: "assistant", text: "I'm Crisis Twin. Start listening, then ask about your portfolio or give me a command." }]);
+    setStatus("Conversation cleared. Ready when you are.");
   }, []);
 
   const startListening = useCallback(() => {
@@ -225,7 +235,7 @@ export default function CrisisTwinAssistant() {
 
   return (
     <>
-      <button type="button" onClick={() => setIsOpen((value) => !value)} className="fixed bottom-5 right-5 z-[60] flex items-center gap-2 rounded-full bg-ultra px-4 py-3 font-semibold text-white shadow-2xl transition hover:scale-[1.02]" aria-label="Open Crisis Twin AI assistant">
+      <button type="button" onClick={() => { if (isOpen) { stopListening(); clearConversation(); setIsOpen(false); } else { setIsOpen(true); } }} className="fixed bottom-5 right-5 z-[60] flex items-center gap-2 rounded-full bg-ultra px-4 py-3 font-semibold text-white shadow-2xl transition hover:scale-[1.02]" aria-label="Open Crisis Twin AI assistant">
         <span className={`grid h-7 w-7 place-items-center rounded-full ${listening ? "bg-ember" : "bg-white/15"}`}><Icon name="mic" size={17} /></span>
         <span>Crisis Twin AI</span>
         <span className={`h-2 w-2 rounded-full ${listening ? "animate-pulse bg-ember" : "bg-mint"}`} />
@@ -233,7 +243,10 @@ export default function CrisisTwinAssistant() {
       {isOpen && <section className="fixed bottom-[88px] right-4 z-[60] flex h-[min(690px,calc(100dvh-120px))] w-[min(420px,calc(100vw-32px))] flex-col overflow-hidden rounded-2xl border border-line bg-bone shadow-2xl" aria-label="Crisis Twin AI command center">
         <header className="flex items-center justify-between bg-ink px-4 py-3 text-white">
           <div><div className="font-semibold">Crisis Twin AI</div><div className="text-xs text-ice/70">Browser voice · portfolio tools · command navigation</div></div>
-          <button type="button" onClick={() => { stopListening(); setIsOpen(false); }} aria-label="Close assistant" className="rounded-lg p-2 hover:bg-white/10"><Icon name="close" size={18} /></button>
+          <div className="flex items-center gap-1">
+          <button type="button" onClick={clearConversation} className="rounded-lg px-2 py-2 text-xs hover:bg-white/10">Clear</button>
+          <button type="button" onClick={() => { stopListening(); clearConversation(); setIsOpen(false); }} aria-label="Close assistant" className="rounded-lg p-2 hover:bg-white/10"><Icon name="close" size={18} /></button>
+          </div>
         </header>
         <div className="flex-1 space-y-3 overflow-y-auto p-3" aria-live="polite">
           {messages.slice(-10).map((message) => <div key={message.id} className={`max-w-[92%] rounded-xl px-3 py-2 text-sm leading-relaxed ${message.role === "user" ? "ml-auto bg-ultra text-white" : "mr-auto bg-white text-ink ring-1 ring-line"}`}>

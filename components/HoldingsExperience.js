@@ -5,6 +5,7 @@ import PageHeader from "@/components/console/PageHeader";
 import NextSteps from "@/components/console/NextSteps";
 import { Panel, Button, Tag } from "@/components/ui";
 import { DivergingBar } from "@/components/viz/Charts";
+import PortfolioSetup from "@/components/PortfolioSetup";
 import { SECTORS, inr, pct, holdingImpact } from "@/lib/sample";
 import {
   getPortfolio,
@@ -22,8 +23,8 @@ export default function HoldingsExperience() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [side, setSide] = useState("Buy");
-  const [selectedHoldingId, setSelectedHoldingId] = useState("reliance");
-  const [quantity, setQuantity] = useState(10);
+  const [selectedHoldingId, setSelectedHoldingId] = useState("");
+  const [quantity, setQuantity] = useState(0);
   const [orderType, setOrderType] = useState("Market");
   const [customLimitPrice, setCustomLimitPrice] = useState("");
   const [tradeStatus, setTradeStatus] = useState(null);
@@ -75,15 +76,22 @@ export default function HoldingsExperience() {
   }, []);
 
   const holdings = portfolio?.holdings || [];
-  const totalValue = portfolio?.portfolio_value || 4820500;
-  const cashBalance = portfolio?.cash_balance ?? 750000;
+  const totalValue = portfolio?.portfolio_value || 0;
+  const cashBalance = portfolio?.cash_balance ?? 0;
   const reservedCash = portfolio?.reserved_cash ?? 0;
   const availableCash = portfolio?.available_cash ?? Math.max(0, cashBalance - reservedCash);
   const isLive = portfolio?.is_live ?? false;
 
+  if (loading) {
+    return <><PageHeader title="Holdings" description="Set up your portfolio to begin." /><Panel title="Loading portfolio">Loading your saved portfolio…</Panel></>;
+  }
+  if (holdings.length === 0) {
+    return <><PageHeader title="Holdings" description="Your portfolio is empty until you add or import your own holdings." /><PortfolioSetup onImported={reloadPortfolio} /></>;
+  }
+
   const top3 = [...holdings].sort((a, b) => b.weight - a.weight).slice(0, 3);
   const selectedHolding = holdings.find((h) => h.id === selectedHoldingId) || holdings[0];
-  const currentMarketPrice = selectedHolding?.current_price || 2500;
+  const currentMarketPrice = selectedHolding?.current_price || 0;
 
   const effectivePrice =
     orderType === "Limit"
@@ -274,7 +282,7 @@ export default function HoldingsExperience() {
         actions={
           <div className="flex items-center gap-3">
             <Tag tone={isLive ? "gain" : "neutral"}>
-              {isLive ? "Live API Connected" : "Local Mock Mode"}
+              {isLive ? "Live Market Data" : "Manual / Imported Prices"}
             </Tag>
             <Button variant="ghost" onClick={handleRefreshPrices} disabled={loading}>
               {loading ? "Refreshing..." : "Refresh Prices"}

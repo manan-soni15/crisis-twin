@@ -428,7 +428,7 @@ export default function WarRoomExperience() {
       let reply;
       // Keep the current deterministic simulator for its supported oil/rate/geopolitical
       // shocks and contextual follow-ups. Route other open-ended or unsupported factors
-      // through Groq so the server-side tool layer can select the appropriate tool.
+      // through the assistant service so the server-side tool layer can select the appropriate tool.
       const contextualScenario = resolveContextualScenario(command);
       const supportedLegacyShock = /\b(oil|crude|interest\s+rates?|policy\s+rates?|repo\s+rates?|geopolitical|sanctions|war)\b/i.test(command);
       if (contextualScenario || (isScenarioRequest(command) && supportedLegacyShock)) {

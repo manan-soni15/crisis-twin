@@ -260,7 +260,7 @@ export default function DebateExperience() {
         </Tag>
         {debateData?.model && (
           <span className="rounded-full bg-mist px-2.5 py-0.5 text-xs text-slate">
-            Model: {debateData.model}
+            Analysis method: adversarial review
           </span>
         )}
         <span className="ml-auto">

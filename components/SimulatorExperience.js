@@ -41,25 +41,25 @@ const PRESETS = [
 ];
 
 const SLIDER_ITEMS = [
-  { id: "oil", label: "Oil price", min: -40, max: 60, value: 25, unit: "%", signed: true },
-  { id: "rate", label: "Policy rate", min: -100, max: 300, step: 25, value: 100, unit: " bps", signed: true },
-  { id: "fx", label: "Rupee vs dollar", min: -15, max: 15, value: 4, unit: "%", signed: true },
-  { id: "vol", label: "Market volatility", min: -20, max: 100, value: 35, unit: "%", signed: true },
+  { id: "oil", label: "Oil price", min: -40, max: 60, value: 0, unit: "%", signed: true },
+  { id: "rate", label: "Policy rate", min: -100, max: 300, step: 25, value: 0, unit: " bps", signed: true },
+  { id: "fx", label: "Rupee vs dollar", min: -15, max: 15, value: 0, unit: "%", signed: true },
+  { id: "vol", label: "Market volatility", min: -20, max: 100, value: 0, unit: "%", signed: true },
 ];
 
 export default function SimulatorExperience() {
   const [scenarioText, setScenarioText] = useState("");
   const [sliderVals, setSliderVals] = useState({
-    oil: 25,
-    rate: 100,
-    fx: 4,
-    vol: 35,
+    oil: 0,
+    rate: 0,
+    fx: 0,
+    vol: 0,
   });
   const [aiExtractedVals, setAiExtractedVals] = useState({
-    oil: 25,
-    rate: 100,
-    fx: 4,
-    vol: 35,
+    oil: 0,
+    rate: 0,
+    fx: 0,
+    vol: 0,
   });
   const [sourceMode, setSourceMode] = useState("ai"); // "ai" | "custom"
   const [isDirty, setIsDirty] = useState(false);
@@ -83,7 +83,7 @@ export default function SimulatorExperience() {
         { factor: "volatility", change_pct: sliders.vol },
       ];
 
-      const scenarioLabel = (text && text.trim()) || "Oil +25% and rates +100 bps";
+      const scenarioLabel = (text && text.trim()) || "Custom stress scenario";
 
       const res = await fetch("/api/simulate", {
         method: "POST",
@@ -116,10 +116,7 @@ export default function SimulatorExperience() {
     }
   }, []);
 
-  // Initial load
-  useEffect(() => {
-    runSimulation("Oil +25% and rates +100 bps", sliderVals, horizonDays, true);
-  }, []);
+  // Do not run or save a sample scenario on first load. The user starts with neutral inputs.
 
   // Preset click handler
   const handlePreset = (preset) => {
@@ -152,7 +149,7 @@ export default function SimulatorExperience() {
     runSimulation(scenarioText, sliderVals, days, false);
   };
 
-  // Text scenario change handler with Groq LLM parsing
+  // Text scenario change handler with natural-language scenario parsing
   const handleTextChange = (e) => {
     const text = e.target.value;
     setScenarioText(text);

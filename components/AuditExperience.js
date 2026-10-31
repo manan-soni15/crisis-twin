@@ -20,7 +20,7 @@ export default function AuditExperience() {
           when: r.when || (r.created_at ? String(r.created_at).slice(0, 10) : "Recent"),
           agents: Number(r.agents || (Array.isArray(r.log) ? r.log.length : 0)),
           confidence: r.confidence || "Unrated",
-          model: r.model || "local-quant-engine",
+          model: r.methodology || "Quantitative scenario engine",
           shocks: typeof r.shocks === "string" ? r.shocks : JSON.stringify(r.shocks ?? {}, null, 2),
           log: Array.isArray(r.log) ? r.log : [],
         }));
@@ -34,7 +34,7 @@ export default function AuditExperience() {
     <>
       <PageHeader
         title="Audit trail"
-        description="Every simulation is logged with its inputs, each advisor's reasoning, the model version and the confidence level, so any recommendation can be traced and checked."
+        description="Saved analyses include their inputs, available reasoning, calculation method and confidence level, so results can be reviewed."
       />
       <div className="grid gap-5 lg:grid-cols-12">
         <Panel className="lg:col-span-8" title="Runs" bodyClass="!px-0 !pb-0">

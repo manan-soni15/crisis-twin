@@ -19,8 +19,11 @@ function portfolio(db) {
   const holdings = db.holdings
     .filter((h) => h.portfolio_id === 'default')
     .map((h) => {
-      const price = num(h.current_price) || num(h.avg_buy_price);
+      const price = num(h.current_price);
+      const avgBuyPrice = num(h.avg_buy_price);
       const val = num(h.quantity) * price;
+      const investedValue = num(h.quantity) * avgBuyPrice;
+      const unrealizedPnl = val - investedValue;
       const reserved = db.paper_trades
         .filter((x) => x.status === 'PENDING' && x.side === 'sell' && x.holding_id === h.id)
         .reduce((s, x) => s + num(x.quantity), 0);
@@ -36,6 +39,10 @@ function portfolio(db) {
         reserved_quantity: reserved,
         available_quantity: Math.max(0, h.quantity - reserved),
         current_price: price,
+        avg_buy_price: avgBuyPrice,
+        invested_value: Math.round(investedValue * 100) / 100,
+        unrealized_pnl: Math.round(unrealizedPnl * 100) / 100,
+        return_pct: investedValue > 0 ? Math.round((unrealizedPnl / investedValue) * 10000) / 100 : null,
         value: Math.round(val * 100) / 100,
       };
     });
@@ -53,8 +60,8 @@ function portfolio(db) {
     pending_orders_count: trades.filter((x) => x.status === 'PENDING').length,
     last_updated: now(),
     is_live: false,
-    price_status: 'seeded_fallback',
-    price_source: 'seeded_fallback',
+    price_status: 'manual_or_imported',
+    price_source: 'manual_or_imported',
     price_as_of: null,
   };
 }
@@ -69,7 +76,7 @@ function asAudit(db, r) {
     when: String(r.created_at || '').slice(0, 10),
     agents: logs.length,
     confidence: String(r.confidence || 'low').replace(/^./, (c) => c.toUpperCase()),
-    model: r.model_version,
+    methodology: r.methodology || "Quantitative scenario engine",
     shocks: r.shocks_json,
     expected_move_pct: r.expected_move_pct,
     survival_score: r.survival_score,
@@ -83,6 +90,7 @@ function asAudit(db, r) {
     p95: r.p95 ?? null,
     survival_score: r.survival_score ?? null,
     created_at: r.created_at || null,
+    per_holding: (() => { try { return typeof r.per_holding_json === 'string' ? JSON.parse(r.per_holding_json) : (r.per_holding || []); } catch { return []; } })(),
   };
 }
 
@@ -138,7 +146,8 @@ async function handle(req, ctx) {
           cvar95: sim.cvar95,
           survival_score: 93,
           confidence: sim.confidence,
-          model_version: 'quant-factor-beta-chronos-bounds',
+          model_version: 'quant-factor-sensitivity-v1',
+          methodology: 'Sector factor sensitivity stress engine',
           per_holding_json: JSON.stringify(sim.per_holding),
           risk_contribution_json: JSON.stringify(sim.risk_contribution),
           created_at: sim.created_at,
@@ -181,9 +190,39 @@ async function handle(req, ctx) {
     if (p === '/health' && method === 'GET') {
       return json({ status: 'healthy', service: 'Crisis Twin Next.js API', version: '1.0.0', environment: process.env.NODE_ENV || 'development' });
     }
+    if (p === '/portfolio/import' && method === 'POST') {
+      const items = Array.isArray(body.holdings) ? body.holdings.slice(0, 100) : [];
+      const cashBalance = num(body.cash_balance, 0);
+      if (cashBalance < 0) return err('Cash balance cannot be negative.');
+      const valid = [];
+      for (const item of items) {
+        const name = String(item?.name || '').trim().slice(0, 100);
+        const quantity = num(item?.quantity, -1);
+        const avgBuyPrice = num(item?.avg_buy_price ?? item?.price, -1);
+        const currentPrice = num(item?.current_price ?? item?.price, -1);
+        if (!name || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(avgBuyPrice) || avgBuyPrice <= 0 || !Number.isFinite(currentPrice) || currentPrice <= 0) continue;
+        const ticker = String(item?.ticker || '').trim().toUpperCase().slice(0, 24);
+        const sector = String(item?.sector || 'other').toLowerCase().slice(0, 32);
+        valid.push({
+          id: `holding-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+          portfolio_id: 'default', ticker: ticker || name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12),
+          name, sector, quantity, avg_buy_price: avgBuyPrice, current_price: currentPrice,
+          purchase_date: /^\\d{4}-\\d{2}-\\d{2}$/.test(String(item?.purchase_date || '')) ? String(item.purchase_date) : null,
+          beta: 1, weight: 0, day_change_pct: 0, updated_at: now(),
+        });
+      }
+      if (!valid.length && cashBalance === 0) return err('Add at least one valid holding or a cash balance greater than zero.');
+      db.holdings = db.holdings.filter((h) => h.portfolio_id !== 'default').concat(valid);
+      const account = db.portfolios.find((p) => p.id === 'default');
+      if (account) { account.cash_balance = cashBalance; account.name = 'My Portfolio'; account.updated_at = now(); }
+      else db.portfolios.push({ id: 'default', name: 'My Portfolio', user_id: 'user_default', cash_balance: cashBalance, created_at: now() });
+      db.paper_trades = db.paper_trades.filter((t) => t.portfolio_id !== 'default');
+      return json({ success: true, holdings_count: valid.length, portfolio: portfolio(db) });
+    }
+
     if (p === '/portfolio' && method === 'GET') return json(portfolio(db));
     if (p === '/portfolio/refresh' && method === 'POST') {
-      return json({ success: true, updated_count: 0, message: 'No external price provider configured; existing prices were not refreshed.', price_status: 'seeded_fallback' });
+      return json({ success: true, updated_count: 0, message: 'No live market-data provider is configured; manually entered/imported prices were not refreshed.', price_status: 'manual_or_imported' });
     }
 
     if (p === '/paper/trade' && method === 'POST') {
@@ -304,7 +343,8 @@ async function handle(req, ctx) {
         survival_score: Math.max(0, Math.min(100, Math.round(100 + run.expected_move_pct * 2))),
         confidence: run.confidence,
         in_fitted_range: run.in_fitted_range ? 1 : 0,
-        model_version: 'quant-factor-beta-chronos-bounds',
+        model_version: 'quant-factor-sensitivity-v1',
+        methodology: 'Sector factor sensitivity stress engine',
         per_holding_json: JSON.stringify(run.per_holding),
         risk_contribution_json: JSON.stringify(run.risk_contribution),
         created_at: run.created_at,

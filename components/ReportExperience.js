@@ -30,10 +30,10 @@ export default function ReportExperience() {
             p05: r.p05 == null ? null : Number(r.p05),
             p95: r.p95 == null ? null : Number(r.p95),
             confidence: r.confidence || "Unrated",
-            hidden_risk: r.assistant_answer || saved.answer || "Saved result. Review the original question and assumptions in the audit trail.",
+            hidden_risk: r.assistant_answer || saved.answer || "No narrative explanation was saved for this run. Review the assumptions and holding-level results in the audit trail.",
             original_question: r.original_question || saved.question || null,
             record_type: r.record_type || "simulation",
-            fix_description: r.original_question ? `Original request: ${r.original_question}` : "Review the scenario assumptions before acting on the result.",
+            fix_description: r.original_question ? `Original request: ${r.original_question}` : "No remediation plan was recorded for this run.",
           };
         });
         setRuns(mapped);
@@ -62,7 +62,7 @@ export default function ReportExperience() {
   const expected = selectedRun?.expected_move_pct;
   const p05 = selectedRun?.p05;
   const p95 = selectedRun?.p95;
-  const afterFix = expected == null ? null : Math.round((expected * 0.82) * 10) / 10;
+  const afterFix = null; // No counterfactual simulation has been run, so do not invent a post-fix result.
   const confTone =
     selectedRun?.confidence === "High"
       ? "gain"
@@ -155,7 +155,7 @@ export default function ReportExperience() {
                 <div>
                   <dt className="text-sm text-slate">After suggested fixes</dt>
                   <dd className="display num text-[1.9rem] text-ultra">
-                    {afterFix == null ? "N/A" : pct(afterFix)}
+                    {afterFix == null ? "Not simulated" : pct(afterFix)}
                   </dd>
                 </div>
                 <div>
@@ -171,7 +171,7 @@ export default function ReportExperience() {
                 <h3 className="head text-lg">{selectedRun?.record_type === "assistant_analysis" ? "Saved assistant analysis" : "Biggest hidden risk"}</h3>
                 <p className="mt-1.5 text-[0.97rem] text-slate">
                   {selectedRun?.hidden_risk ||
-                    "HDFC Bank and Tata Motors share auto-credit risk. Together they are 32% of the portfolio."}
+                    "No additional hidden-risk narrative was recorded. Use the holding-level impact table and scenario assumptions to interpret this run."}
                 </p>
               </div>
               <div>
