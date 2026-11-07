@@ -35,7 +35,7 @@ export default function ShockGraph({
   runKey = 0,
   interactive = false,
   loss = "#ff5a2c",
-  gain = "#1fa98a",
+  gain = "#10b981",
   className = "text-ink",
   showRings = true,
   holdingsData,
@@ -207,7 +207,7 @@ export default function ShockGraph({
                     textAnchor="middle"
                     fontSize="11.5"
                     fontWeight="800"
-                    fill="#0e1433"
+                    fill="#0b0f19"
                   >
                     {pct(v, 0)}
                   </text>
@@ -252,7 +252,7 @@ export default function ShockGraph({
                     textAnchor="middle"
                     fontSize="12"
                     fontWeight="800"
-                    fill="#0e1433"
+                    fill="#0b0f19"
                   >
                     {pct(v)}
                   </text>

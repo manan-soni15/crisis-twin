@@ -1,21 +1,21 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ink: #0e1433;
-  --color-ink-soft: #1b2347;
-  --color-ultra: #1a2fd4;
-  --color-ultra-deep: #1021a0;
+  --color-ink: #0b0f19;
+  --color-ink-soft: #151c2c;
+  --color-ultra: #2563eb;
+  --color-ultra-deep: #1d4ed8;
   --color-ember: #ff5a2c;
-  --color-ember-deep: #c93208;
-  --color-ember-soft: #ffe2d8;
-  --color-mint: #1fa98a;
-  --color-mint-deep: #0e7560;
-  --color-mint-soft: #d3f1e8;
-  --color-mist: #eceef4;
-  --color-bone: #f8f9fc;
-  --color-line: #d2d7e3;
-  --color-slate: #4a5479;
-  --color-ice: #cbd8ff;
+  --color-ember-deep: #dc3811;
+  --color-ember-soft: #ffe4dc;
+  --color-mint: #10b981;
+  --color-mint-deep: #059669;
+  --color-mint-soft: #d1fae5;
+  --color-mist: #f1f4f9;
+  --color-bone: #f8fafc;
+  --color-line: #d8e0ec;
+  --color-slate: #475569;
+  --color-ice: #cbd5e1;
   --font-sans: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Newsreader Variable", Georgia, "Times New Roman", serif;
 }
@@ -64,7 +64,7 @@
 
 @keyframes edgeDraw { to { stroke-dashoffset: 0; } }
 @keyframes pillOn { from { fill: transparent; stroke-opacity: 0.4; } to { fill: var(--c); stroke-opacity: 0; } }
-@keyframes textOn { from { fill: currentColor; } to { fill: #0e1433; } }
+@keyframes textOn { from { fill: currentColor; } to { fill: #0b0f19; } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ring { from { transform: scale(0.4); opacity: 0.7; } to { transform: scale(11); opacity: 0; } }
 

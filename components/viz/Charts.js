@@ -11,8 +11,8 @@ export function LineChart({
   xLabels = [],
   gap, // optional [indexA, indexB] shade between series 0 and 1
   className = "",
-  grid = "#d2d7e3",
-  text = "#4a5479",
+  grid = "#d8e0ec",
+  text = "#475569",
 }) {
   const n = series[0].values.length;
   const iw = w - pad.l - pad.r;
@@ -36,7 +36,7 @@ export function LineChart({
       {xLabels.map((l, i) => (
         <text key={l} x={pad.l + (i / (xLabels.length - 1)) * iw} y={h - 8} textAnchor={i === 0 ? "start" : i === xLabels.length - 1 ? "end" : "middle"} fontSize="11" fill={text}>{l}</text>
       ))}
-      {shade && <path d={shade} fill="#1a2fd4" opacity="0.08" />}
+      {shade && <path d={shade} fill="#2563eb" opacity="0.08" />}
       {series.map((s, i) => (
         <path key={i} d={path(s.values)} fill="none" stroke={s.color} strokeWidth={s.width || 2.2} strokeDasharray={s.dash} strokeLinejoin="round" strokeLinecap="round" />
       ))}
@@ -44,7 +44,7 @@ export function LineChart({
   );
 }
 
-export function Sparkline({ values, w = 120, h = 36, color = "#1a2fd4" }) {
+export function Sparkline({ values, w = 120, h = 36, color = "#2563eb" }) {
   const min = Math.min(...values), max = Math.max(...values);
   const d = values.map((v, i) => `${i ? "L" : "M"}${((i / (values.length - 1)) * w).toFixed(1)} ${(h - 3 - ((v - min) / (max - min || 1)) * (h - 6)).toFixed(1)}`).join(" ");
   return (
@@ -84,7 +84,7 @@ export function RangeBar({ low, high, expected, min = -20, max = 0 }) {
   );
 }
 
-export function Ring({ value, size = 120, stroke = 10, color = "#1a2fd4", track = "#d2d7e3", children }) {
+export function Ring({ value, size = 120, stroke = 10, color = "#2563eb", track = "#d8e0ec", children }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   return (
