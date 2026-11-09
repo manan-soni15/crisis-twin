@@ -54,9 +54,9 @@ function Voice({ who, role, tone, align = "left", children, evidence }) {
     audit: "border-mint/70 text-white",
   };
   const shape = {
-    bull: <path d="M12 5l7 13H5z" fill="#cbd8ff" />,
+    bull: <path d="M12 5l7 13H5z" fill="#cbd5e1" />,
     bear: <path d="M12 19L5 6h14z" fill="#ff5a2c" />,
-    audit: <rect x="6" y="6" width="12" height="12" rx="1.5" fill="#62e6c3" />,
+    audit: <rect x="6" y="6" width="12" height="12" rx="1.5" fill="#10b981" />,
   }[tone];
   return (
     <div className={`flex ${align === "right" ? "md:justify-end" : align === "center" ? "md:justify-center" : ""}`}>
@@ -133,7 +133,7 @@ export function VoiceBand() {
           <div className="rounded-[14px] bg-ink p-6 md:p-8">
             <svg viewBox="0 0 720 150" className="block w-full" aria-hidden="true">
               {bars.map((h, i) => (
-                <rect key={i} x={i * 10 + 2} y={75 - h / 2} width="5" height={h} rx="2.5" fill={i > 40 && i < 47 ? "#ff5a2c" : "#cbd8ff"} opacity={i > 40 && i < 47 ? 1 : 0.75} />
+                <rect key={i} x={i * 10 + 2} y={75 - h / 2} width="5" height={h} rx="2.5" fill={i > 40 && i < 47 ? "#ff5a2c" : "#cbd5e1"} opacity={i > 40 && i < 47 ? 1 : 0.75} />
               ))}
             </svg>
             <p className="serif mt-6 text-[1.55rem] leading-snug text-white">
@@ -179,7 +179,7 @@ export function Proof() {
               <span className="inline-flex items-center gap-2"><span className="h-0.5 w-6 bg-ultra" />With Crisis Twin</span>
             </div>
             <LineChart
-              series={[{ values: raw, color: "#0e1433", width: 2 }, { values: adj, color: "#1a2fd4", width: 2.8 }]}
+              series={[{ values: raw, color: "#0b0f19", width: 2 }, { values: adj, color: "#2563eb", width: 2.8 }]}
               xLabels={["Day 0", "Day 15", "Day 30", "Day 45", "Day 60"]}
               yMin={64} yMax={104} yTicks={[70, 80, 90, 100]}
             />

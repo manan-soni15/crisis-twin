@@ -3,7 +3,7 @@
 import { useState } from "react";
 import ShockGraph from "@/components/viz/ShockGraph";
 import { Button } from "@/components/ui";
-import { SHOCKS, portfolioImpact, pct } from "@/lib/sample";
+import { SHOCKS, HERO_HOLDINGS, portfolioImpact, pct } from "@/lib/sample";
 
 export default function Hero() {
   const [scenario, setScenario] = useState("oil");
@@ -12,11 +12,11 @@ export default function Hero() {
     setScenario(id);
     setRun((r) => r + 1);
   };
-  const total = portfolioImpact(scenario);
+  const total = portfolioImpact(scenario, HERO_HOLDINGS);
   const name = SHOCKS.find((s) => s.id === scenario).name;
 
   return (
-    <section className="relative isolate overflow-hidden bg-ultra text-white">
+    <section className="relative isolate overflow-hidden bg-ink bg-[radial-gradient(110%_90%_at_72%_18%,#172554_0%,#0b0f19_62%,#070a12_100%)] text-white">
       <div className="wrap grid min-h-[100svh] items-center gap-12 pb-16 pt-32 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-8">
         <div className="relative z-10">
           <h1 className="display text-[clamp(3.4rem,8.4vw,7.2rem)]">
@@ -32,7 +32,7 @@ export default function Hero() {
           <p className="mt-6 text-sm text-ice/70">Simulation only. No real money, no real trades.</p>
         </div>
 
-        <div className="relative z-0">
+        <div className="relative z-0 rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-sm sm:p-7">
           <div className="mb-5 flex flex-wrap items-center gap-2" role="group" aria-label="Choose a shock to simulate">
             <span className="mr-1 text-sm text-ice/80">Try a shock</span>
             {SHOCKS.map((s) => (
@@ -42,7 +42,7 @@ export default function Hero() {
                 aria-pressed={scenario === s.id}
                 onClick={() => pick(s.id)}
                 className={`rounded-full border px-3.5 py-1.5 text-[0.9rem] font-semibold transition-colors ${
-                  scenario === s.id ? "border-white bg-white text-ink" : "border-white/35 text-white hover:bg-white/10"
+                  scenario === s.id ? "border-ember bg-ember text-ink" : "border-white/20 bg-white/5 text-white hover:border-white/40 hover:bg-white/10"
                 }`}
               >
                 {s.label}
@@ -50,13 +50,13 @@ export default function Hero() {
             ))}
           </div>
 
-          <div className="scroll-x -mx-6 px-6 sm:mx-0 sm:px-0 sm:[overflow:visible]">
+          <div className="scroll-x -mx-5 px-5 sm:mx-0 sm:px-0 sm:[overflow:visible]">
             <div className="min-w-[600px] sm:min-w-0">
-              <ShockGraph scenario={scenario} runKey={run} loss="#ff5a2c" gain="#62e6c3" className="text-white" />
+              <ShockGraph scenario={scenario} runKey={run} holdingsData={HERO_HOLDINGS} loss="#ff5a2c" gain="#10b981" className="text-white" />
             </div>
           </div>
 
-          <div className="mt-4 flex items-end justify-between gap-6 border-t border-white/20 pt-4" aria-live="polite">
+          <div className="mt-4 flex items-end justify-between gap-6 border-t border-white/15 pt-4" aria-live="polite">
             <div className="text-sm text-ice/80">
               {name}
               <br />
@@ -64,7 +64,7 @@ export default function Hero() {
             </div>
             <div className="text-right">
               <div className="text-sm text-ice/80">Expected portfolio move</div>
-              <div className="display num text-[2.6rem]">{pct(total)}</div>
+              <div className={`display num text-[2.6rem] ${total < 0 ? "text-ember" : "text-mint"}`}>{pct(total)}</div>
             </div>
           </div>
         </div>
