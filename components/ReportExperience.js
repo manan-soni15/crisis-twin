@@ -47,13 +47,14 @@ export default function ReportExperience() {
             scenario_name: r.scenario || "Saved analysis",
             survival_score: r.survival_score == null ? null : Number(r.survival_score),
             expected_move_pct: r.expected_move_pct == null ? null : Number(r.expected_move_pct),
+            after_fix_pct: r.after_fix_pct == null ? null : Number(r.after_fix_pct),
             p05: r.p05 == null ? null : Number(r.p05),
             p95: r.p95 == null ? null : Number(r.p95),
             confidence: r.confidence || "Unrated",
-            hidden_risk: r.assistant_answer || saved.answer || "No narrative explanation was saved for this run. Review the assumptions and holding-level results in the audit trail.",
+            hidden_risk: r.hidden_risk || r.assistant_answer || saved.answer || "No narrative explanation was saved for this run. Review the assumptions and holding-level results in the audit trail.",
             original_question: r.original_question || saved.question || null,
             record_type: r.record_type || "simulation",
-            fix_description: r.original_question ? `Original request: ${r.original_question}` : "No remediation plan was recorded for this run.",
+            fix_description: r.fix_description || (r.original_question ? `Original request: ${r.original_question}` : "No remediation plan was recorded for this run."),
           };
         });
         setRuns(mapped);
@@ -82,7 +83,7 @@ export default function ReportExperience() {
   const expected = selectedRun?.expected_move_pct;
   const p05 = selectedRun?.p05;
   const p95 = selectedRun?.p95;
-  const afterFix = null; // No counterfactual simulation has been run, so do not invent a post-fix result.
+  const afterFix = selectedRun?.after_fix_pct ?? null;
   const confTone =
     selectedRun?.confidence === "High"
       ? "gain"

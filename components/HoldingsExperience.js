@@ -232,9 +232,14 @@ export default function HoldingsExperience() {
 
   async function handleRefreshPrices() {
     setLoading(true);
+    setHoldingSaveMessage(null);
     try {
-      if (isLive) {
-        await refreshPortfolioPrices();
+      const res = await refreshPortfolioPrices();
+      if (res?.message) {
+        setHoldingSaveMessage({
+          type: res.updated_count > 0 ? "success" : "info",
+          text: res.message,
+        });
       }
       await reloadPortfolio();
     } catch (e) {
